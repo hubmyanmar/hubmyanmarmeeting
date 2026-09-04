@@ -1,13 +1,32 @@
-// src/App.jsx
 import React from 'react';
-import Dashboard from './Dashboard';
+import { Routes, Route } from 'react-router-dom'; 
+import AuthCard from './Auth/AuthCard'; 
+import Dashboard from './Dashboard'; 
+import DashboardHome from './components/DashboardHome';
+import MyMeetings from './components/MyMeetings';
+import BookMeeting from './components/BookMeeting';
+import MeetingRooms from './components/MeetingRooms';
+import MeetingRecords from './components/MeetingRecords';
+import ActionItem from './components/ActionItem';
+import Calendar from './components/Calendar';
+import Reports from './components/Reports';
+import Settings from './components/Settings';
 
-function App() {
+export default function App() {
   return (
-    <div>
-      <Dashboard />
-    </div>
+    <Routes>
+      <Route path="/" element={<AuthCard />} />
+      <Route path="/dashboard" element={<Dashboard />}>
+        <Route index element={<DashboardHome />} />
+        <Route path="my-meetings" element={<MyMeetings />} />
+        <Route path="book-meeting" element={<BookMeeting />} />
+        <Route path="meeting-rooms" element={<MeetingRooms />} />
+        <Route path="meeting-records" element={<MeetingRecords />} />
+        <Route path="action-items" element={<ActionItem />} />
+        <Route path="calendar" element={<Calendar />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+    </Routes>
   );
 }
-
-export default App;
