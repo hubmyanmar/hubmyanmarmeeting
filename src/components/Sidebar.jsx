@@ -35,7 +35,11 @@ export default function Sidebar({ user, profileImage }) {
   return (
     <aside className="w-[260px] bg-white border-r border-gray-200 flex flex-col shrink-0 h-screen">
       <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-[#3B82F6] rounded flex items-center justify-center text-white font-bold text-lg" style={{ background: 'linear-gradient(135deg, #3B82F6, #EF4444)' }}>M</div>
+        <img 
+          src="/hubmyanmar.jpg" 
+          alt="HUB Myanmar Logo" 
+          className="w-8 h-8 object-contain rounded" 
+        />
         <div>
           <h1 className="font-bold text-sm text-gray-900 leading-tight">Hub Myanmar</h1>
           <p className="text-[10px] font-bold text-gray-500 tracking-wider">MEETING HUB</p>
