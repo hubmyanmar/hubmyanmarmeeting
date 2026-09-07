@@ -9,7 +9,19 @@ const SkeletonText = ({ lines = 3 }) => (
   </div>
 );
 
-export default function RightPanel({ status, actionType, liveTranscript }) {
+export default function RightPanel({ 
+  status, 
+  actionType, 
+  liveTranscript,
+  keyDecisions = [
+    "Approve partnership proposal with ABC Company",
+    "Q2 Sales Target set to MMK 2.5 Billion"
+  ],
+  actionItems = [
+    { task: "Prepare partnership agreement", owner: "U Aung", dueDate: "25 May 2025", status: "In Progress" },
+    { task: "Prepare partnership agreement", owner: "U Ko", dueDate: "25 May 2025", status: "In Progress" }
+  ]
+}) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full overflow-hidden min-h-[500px]">
       {/* Tabs */}
@@ -59,13 +71,20 @@ export default function RightPanel({ status, actionType, liveTranscript }) {
 
         {status === "done" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            {/* Key Decisions */}
             <div>
               <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">Key Decisions</h3>
               <ul className="space-y-3.5">
-                <li className="flex items-start gap-3 text-[14px] text-gray-700"><CheckCircle2 size={18} className="text-emerald-500 mt-[2px] shrink-0" /> Approve partnership proposal with ABC Company</li>
-                <li className="flex items-start gap-3 text-[14px] text-gray-700"><CheckCircle2 size={18} className="text-emerald-500 mt-[2px] shrink-0" /> Q2 Sales Target set to MMK 2.5 Billion</li>
+                {keyDecisions.map((decision, index) => (
+                  <li key={index} className="flex items-start gap-3 text-[14px] text-gray-700">
+                    <CheckCircle2 size={18} className="text-emerald-500 mt-[2px] shrink-0" />
+                    {decision}
+                  </li>
+                ))}
               </ul>
             </div>
+
+            {/* Action Items */}
             <div>
               <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">Action Items</h3>
               <div className="overflow-x-auto">
@@ -79,12 +98,18 @@ export default function RightPanel({ status, actionType, liveTranscript }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    <tr>
-                      <td className="py-4 text-[#475467] font-medium pr-2">Prepare partnership agreement</td>
-                      <td className="py-4 text-[#475467]">U Aung</td>
-                      <td className="py-4 text-[#475467]">25 May 2025</td>
-                      <td className="py-4"><span className="px-2.5 py-1 rounded-[6px] text-xs font-medium bg-[#FFF4ED] text-[#B93815]">In Progress</span></td>
-                    </tr>
+                    {actionItems.map((item, index) => (
+                      <tr key={index}>
+                        <td className="py-4 text-[#475467] font-medium pr-2">{item.task}</td>
+                        <td className="py-4 text-[#475467]">{item.owner}</td>
+                        <td className="py-4 text-[#475467]">{item.dueDate}</td>
+                        <td className="py-4">
+                          <span className="px-2.5 py-1 rounded-[6px] text-xs font-medium bg-[#FFF4ED] text-[#B93815]">
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
