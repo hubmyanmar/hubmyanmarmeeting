@@ -1,5 +1,5 @@
 import React from 'react';
-import aiImage from '../assets/images.jpeg'; 
+import aiImage from '../assets/AI-Summarizer-1.webp'; 
 
 export default function AiSummaryBanner() {
   return (

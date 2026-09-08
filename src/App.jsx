@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom'; 
 import AuthCard from './Auth/AuthCard'; 
 import Dashboard from './Dashboard'; 
@@ -13,13 +13,23 @@ import Reports from './components/Reports';
 import Settings from './components/Settings';
 
 export default function App() {
+
+  const [bookedMeetings, setBookedMeetings] = useState([]);
+
+  const handleBookMeeting = (newMeeting) => {
+    setBookedMeetings((prev) => [...prev, newMeeting]);
+  };
+
   return (
     <Routes>
       <Route path="/" element={<AuthCard />} />
       <Route path="/dashboard" element={<Dashboard />}>
-        <Route index element={<DashboardHome />} />
-        <Route path="my-meetings" element={<MyMeetings />} />
-        <Route path="book-meeting" element={<BookMeeting />} />
+        <Route index element={<DashboardHome bookedMeetings={bookedMeetings} />} />
+        <Route path="my-meetings" element={<MyMeetings bookedMeetings={bookedMeetings} />} />
+        <Route 
+          path="book-meeting" 
+          element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} />} 
+        />
         <Route path="meeting-rooms" element={<MeetingRooms />} />
         <Route path="meeting-records" element={<MeetingRecords />} />
         <Route path="action-items" element={<ActionItem />} />

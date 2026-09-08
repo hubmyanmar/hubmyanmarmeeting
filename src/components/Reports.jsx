@@ -1,10 +1,26 @@
 import React from 'react';
+import Header from './Reports/Header';
+import MetricCards from './Reports/MetricCards';
+import DepartmentChart from './Reports/DepartmentChart';
+import ActionsChart from './Reports/ActionsChart';
+import TopRooms from './Reports/TopRooms';
+import OverdueActions from './Reports/OverdueActions';
 
 export default function Reports() {
   return (
-    <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-      <h2 className="text-2xl font-bold text-gray-900">Reports</h2>
-      <p className="text-gray-600 mt-2">This is the Reports page.</p>
+    <div className="max-w-[1400px] mx-auto">
+      <Header />
+      <MetricCards />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <DepartmentChart />
+        <ActionsChart />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TopRooms />
+        <OverdueActions />
+      </div>
     </div>
   );
 }
