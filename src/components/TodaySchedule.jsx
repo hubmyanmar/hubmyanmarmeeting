@@ -203,8 +203,14 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
         const elapsedMins = Math.max(0, Math.floor((currentTime - startTimeObj) / (1000 * 60)));
         status = 'badge';
         text = `${elapsedMins} mins`;
+        const memberCount = Array.isArray(meeting.participants)
+          ? meeting.participants.length
+          : typeof meeting.participants === 'number'
+          ? meeting.participants
+          : meeting.attendees?.length || 0;
+
         roomInfo = { 
-          joinedCount: (meeting.participants?.length || 2) + 1,
+          joinedCount: memberCount,
           elapsed: `${elapsedMins} mins`
         };
       } 
