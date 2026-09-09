@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Square, Mic, Activity, CheckCircle2 } from 'lucide-react';
 
 const SkeletonText = ({ lines = 3 }) => (
@@ -13,15 +13,24 @@ export default function RightPanel({
   status, 
   actionType, 
   liveTranscript,
-  keyDecisions = [
-    "Approve partnership proposal with ABC Company",
-    "Q2 Sales Target set to MMK 2.5 Billion"
-  ],
-  actionItems = [
-    { task: "Prepare partnership agreement", owner: "U Aung", dueDate: "25 May 2025", status: "In Progress" },
-    { task: "Prepare partnership agreement", owner: "U Ko", dueDate: "25 May 2025", status: "In Progress" }
-  ]
+  keyDecisions: propKeyDecisions,
+  actionItems: propActionItems
 }) {
+  const [keyDecisions, setKeyDecisions] = useState(propKeyDecisions || []);
+  const [actionItems, setActionItems] = useState(propActionItems || []);
+  
+  useEffect(() => {
+    if (Array.isArray(propKeyDecisions)) {
+      setKeyDecisions(propKeyDecisions);
+    }
+  }, [propKeyDecisions]);
+
+  useEffect(() => {
+    if (Array.isArray(propActionItems)) {
+      setActionItems(propActionItems);
+    }
+  }, [propActionItems]);
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full overflow-hidden min-h-[500px]">
       {/* Tabs */}
@@ -75,12 +84,16 @@ export default function RightPanel({
             <div>
               <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">Key Decisions</h3>
               <ul className="space-y-3.5">
-                {keyDecisions.map((decision, index) => (
-                  <li key={index} className="flex items-start gap-3 text-[14px] text-gray-700">
-                    <CheckCircle2 size={18} className="text-emerald-500 mt-[2px] shrink-0" />
-                    {decision}
-                  </li>
-                ))}
+                {keyDecisions.length > 0 ? (
+                  keyDecisions.map((decision, index) => (
+                    <li key={index} className="flex items-start gap-3 text-[14px] text-gray-700">
+                      <CheckCircle2 size={18} className="text-emerald-500 mt-[2px] shrink-0" />
+                      {decision}
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-400">No key decisions recorded.</p>
+                )}
               </ul>
             </div>
 
@@ -98,18 +111,26 @@ export default function RightPanel({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {actionItems.map((item, index) => (
-                      <tr key={index}>
-                        <td className="py-4 text-[#475467] font-medium pr-2">{item.task}</td>
-                        <td className="py-4 text-[#475467]">{item.owner}</td>
-                        <td className="py-4 text-[#475467]">{item.dueDate}</td>
-                        <td className="py-4">
-                          <span className="px-2.5 py-1 rounded-[6px] text-xs font-medium bg-[#FFF4ED] text-[#B93815]">
-                            {item.status}
-                          </span>
+                    {actionItems.length > 0 ? (
+                      actionItems.map((item, index) => (
+                        <tr key={index}>
+                          <td className="py-4 text-[#475467] font-medium pr-2">{item.task}</td>
+                          <td className="py-4 text-[#475467]">{item.owner}</td>
+                          <td className="py-4 text-[#475467]">{item.dueDate}</td>
+                          <td className="py-4">
+                            <span className="px-2.5 py-1 rounded-[6px] text-xs font-medium bg-[#FFF4ED] text-[#B93815]">
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="py-4 text-center text-sm text-gray-400">
+                          No action items recorded.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
