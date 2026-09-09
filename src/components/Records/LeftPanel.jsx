@@ -14,17 +14,27 @@ export default function LeftPanel({
   timer, 
   formatTime,
   handlePause,
-  handleResume
+  handleResume,
+  englishSummary: propEnglishSummary,
+  myanmarSummary: propMyanmarSummary
 }) {
   const [isEditingEnglish, setIsEditingEnglish] = useState(false);
-  const [englishSummary, setEnglishSummary] = useState(
-    "The meeting discussed partnership opportunities with ABC Company, Q2 sales target, marketing campaign, and product roadmap. The team aligned on key actions and responsibilities."
-  );
+  const [englishSummary, setEnglishSummary] = useState(propEnglishSummary || "");
 
   const [isEditingMyanmar, setIsEditingMyanmar] = useState(false);
-  const [myanmarSummary, setMyanmarSummary] = useState(
-    "အစည်းအဝေးတွင် ABC ကုမ္ပဏီနှင့် မိတ်ဖက်ပူးပေါင်းဆောင်ရွက်မည့် အခွင့်အလမ်းများ၊ ဒုတိယသုံးလပတ် အရောင်းရည်မှန်းချက်၊ စျေးကွက်ရှာဖွေရေး ကမ်ပိန်းနှင့် ထုတ်ကုန်လမ်းပြမြေပုံတို့အကြောင်း ဆွေးနွေးခဲ့ကြသည်။ အဖွဲ့သည် အဓိကလုပ်ဆောင်ရမည့်အချက်များနှင့် တာဝန်များကို ညှိနှိုင်းသဘောတူညီခဲ့ကြသည်။"
-  );
+  const [myanmarSummary, setMyanmarSummary] = useState(propMyanmarSummary || "");
+  
+  useEffect(() => {
+    if (propEnglishSummary) {
+      setEnglishSummary(propEnglishSummary);
+    }
+  }, [propEnglishSummary]);
+
+  useEffect(() => {
+    if (propMyanmarSummary) {
+      setMyanmarSummary(propMyanmarSummary);
+    }
+  }, [propMyanmarSummary]);
 
   const [isPlayingPlayback, setIsPlayingPlayback] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
@@ -57,17 +67,12 @@ export default function LeftPanel({
 
   // --- Download Function ---
   const handleDownload = () => {
-    // မှတ်ချက်: လက်ရှိတွင် Audio အစစ်မရှိပါသဖြင့် Dummy Text File ကို Download လုပ်ပေးပါမည်။
-    // အကယ်၍ Parent မှ Audio Blob/URL ပို့ပေးပါက ထို URL ကို ဤနေရာတွင် အသုံးပြုပါ။
-    
     const content = "This is a dummy audio transcript or audio blob placeholder.\nTime recorded: " + formatTime(timer);
-    
-    // Blob ကို ဖန်တီးပါ (အသံဖိုင်အစစ်ဆိုလျှင် type ကို 'audio/webm' သို့မဟုတ် 'audio/mp3' ပြောင်းပါ)
     const blob = new Blob([content], { type: 'text/plain' }); 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Meeting_Record_${new Date().getTime()}.txt`; // .mp3 သို့မဟုတ် .webm ဟုပြောင်းနိုင်သည်
+    a.download = `Meeting_Record_${new Date().getTime()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -171,7 +176,7 @@ export default function LeftPanel({
               </div>
             ) : (
               <>
-                <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{englishSummary}</p>
+                <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{englishSummary || "No summary available."}</p>
                 <button onClick={() => setIsEditingEnglish(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
               </>
             )}
@@ -203,7 +208,7 @@ export default function LeftPanel({
               </div>
             ) : (
               <>
-                <p className="text-[#475467] text-[14px] leading-[1.8] font-myanmar mb-5">{myanmarSummary}</p>
+                <p className="text-[#475467] text-[14px] leading-[1.8] font-myanmar mb-5">{myanmarSummary || "အကျဉ်းချုပ် မရှိသေးပါ။"}</p>
                 <button onClick={() => setIsEditingMyanmar(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
               </>
             )}
