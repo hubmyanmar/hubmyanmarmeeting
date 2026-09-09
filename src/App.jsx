@@ -12,6 +12,8 @@ import Calendar from './components/Calendar';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 
+import { RecordingProvider } from './context/RecordingContext';
+
 export default function App() {
 
   const [bookedMeetings, setBookedMeetings] = useState([]);
@@ -21,22 +23,24 @@ export default function App() {
   };
 
   return (
-    <Routes>
-      <Route path="/" element={<AuthCard />} />
-      <Route path="/dashboard" element={<Dashboard />}>
-        <Route index element={<DashboardHome bookedMeetings={bookedMeetings} />} />
-        <Route path="my-meetings" element={<MyMeetings bookedMeetings={bookedMeetings} />} />
-        <Route 
-          path="book-meeting" 
-          element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} />} 
-        />
-        <Route path="meeting-rooms" element={<MeetingRooms />} />
-        <Route path="meeting-records" element={<MeetingRecords />} />
-        <Route path="action-items" element={<ActionItem />} />
-        <Route path="calendar" element={<Calendar />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
-    </Routes>
+    <RecordingProvider>
+      <Routes>
+        <Route path="/" element={<AuthCard />} />
+        <Route path="/dashboard" element={<Dashboard />}>
+          <Route index element={<DashboardHome bookedMeetings={bookedMeetings} />} />
+          <Route path="my-meetings" element={<MyMeetings bookedMeetings={bookedMeetings} />} />
+          <Route 
+            path="book-meeting" 
+            element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} />} 
+          />
+          <Route path="meeting-rooms" element={<MeetingRooms />} />
+          <Route path="meeting-records" element={<MeetingRecords />} />
+          <Route path="action-items" element={<ActionItem />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </RecordingProvider>
   );
 }
