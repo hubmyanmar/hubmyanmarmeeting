@@ -128,12 +128,15 @@ export default function ActionsChart({ filter }) {
     };
   }, [filter]);
 
-  const maxDataVal = Math.max(...chartData.completed, ...chartData.overdue);
+  // Max Scale 40 ပုံသေထားရှိခြင်း
+  const maxDataVal = Math.max(...chartData.completed, ...chartData.overdue, 0);
   const max = Math.max(40, Math.ceil(maxDataVal / 10) * 10);
+
+  // 0 တန်ဖိုးဖြစ်လျှင် y = 95 (0 Line)၊ Max (40) ဖြစ်လျှင် y = 5 ဖြစ်အောင် Padding ပေးထားပါသည်
   const getY = (val) => {
-    const topY = 15;     // Top Position
-    const bottomY = 105; // Bottom (Zero) Position
-    return bottomY - (val / max) * (bottomY - topY);
+    const bottom0Line = 95; // 0 baseline position
+    const topMaxLine = 5;    // Top max position
+    return bottom0Line - (val / max) * (bottom0Line - topMaxLine);
   };
 
   const c1 = getY(chartData.completed[0]);
@@ -146,12 +149,14 @@ export default function ActionsChart({ filter }) {
   const o3 = getY(chartData.overdue[2]);
   const o4 = getY(chartData.overdue[3]);
 
-  const compPoints = `10,${c1} 90,${c2} 170,${c3} 250,${c4}`;
-  const overPoints = `10,${o1} 90,${o2} 170,${o3} 250,${o4}`;
+  const x1 = 10, x2 = 100, x3 = 190, x4 = 280;
+
+  const compPoints = `${x1},${c1} ${x2},${c2} ${x3},${c3} ${x4},${c4}`;
+  const overPoints = `${x1},${o1} ${x2},${o2} ${x3},${o3} ${x4},${o4}`;
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-6">
         <h2 className="text-base font-bold text-gray-900">Actions Overview</h2>
         <div className="flex items-center gap-4 text-xs font-medium">
           <div className="flex items-center gap-1.5">
@@ -165,38 +170,51 @@ export default function ActionsChart({ filter }) {
         </div>
       </div>
 
-      <div className="relative h-48 w-full pt-4">
-        {/* Y-Axis Label တန်ဖိုးများကို Dynamic ဖြစ်အောင် ပြင်ဆင်ထားသောနေရာ */}
-        <div className="absolute inset-0 flex flex-col justify-between text-[10px] text-gray-400 pointer-events-none">
-          <div className="border-b border-gray-100 pb-1">{max}</div>
-          <div className="border-b border-gray-100 pb-1">{max * 0.75}</div>
-          <div className="border-b border-gray-100 pb-1">{max * 0.5}</div>
-          <div className="border-b border-gray-100 pb-1">{max * 0.25}</div>
-          <div>0</div>
+      <div className="relative h-48 w-full flex">
+        {/* Y-Axis Label (40, 30, 20, 10, 0) */}
+        <div className="flex flex-col justify-between text-[10px] text-gray-400 pb-2 pr-3 items-end w-8 shrink-0">
+          <span>{max}</span>
+          <span>{max * 0.75}</span>
+          <span>{max * 0.5}</span>
+          <span>{max * 0.25}</span>
+          <span className="font-semibold text-gray-500">0</span>
         </div>
 
-        <svg className="w-full h-full pl-6 overflow-visible" viewBox="0 0 300 120" preserveAspectRatio="none">
-          {/* Overdue Line */}
-          <polyline fill="none" stroke="#F43F5E" strokeWidth="2" points={overPoints} />
-          <circle cx="10" cy={o1} r="3.5" className="fill-rose-500" />
-          <circle cx="90" cy={o2} r="3.5" className="fill-rose-500" />
-          <circle cx="170" cy={o3} r="3.5" className="fill-rose-500" />
-          <circle cx="250" cy={o4} r="3.5" className="fill-rose-500" />
+        <div className="relative flex-1 h-[calc(100%-1.25rem)] ml-1">
+          {/* Grid Lines */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            <div className="border-b border-gray-100 w-full h-[1px]"></div>
+            <div className="border-b border-gray-100 w-full h-[1px]"></div>
+            <div className="border-b border-gray-100 w-full h-[1px]"></div>
+            <div className="border-b border-gray-100 w-full h-[1px]"></div>
+            {/* 0 Line Baseline */}
+            <div className="border-b-2 border-gray-300 w-full h-[1px]"></div>
+          </div>
 
-          {/* Completed Line */}
-          <polyline fill="none" stroke="#10B981" strokeWidth="2.5" points={compPoints} />
-          <circle cx="10" cy={c1} r="4" className="fill-emerald-500" />
-          <circle cx="90" cy={c2} r="4" className="fill-emerald-500" />
-          <circle cx="170" cy={c3} r="4" className="fill-emerald-500" />
-          <circle cx="250" cy={c4} r="4" className="fill-emerald-500" />
-        </svg>
-      </div>
+          <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 290 100" preserveAspectRatio="none">
+            {/* Overdue Line */}
+            <polyline fill="none" stroke="#F43F5E" strokeWidth="1.5" points={overPoints} />
+            <circle cx={x1} cy={o1} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
+            <circle cx={x2} cy={o2} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
+            <circle cx={x3} cy={o3} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
+            <circle cx={x4} cy={o4} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
 
-      <div className="flex justify-between pl-6 text-[11px] text-gray-400 mt-2 font-medium">
-        <span>{chartData.labels[0]}</span>
-        <span>{chartData.labels[1]}</span>
-        <span>{chartData.labels[2]}</span>
-        <span>{chartData.labels[3]}</span>
+            {/* Completed Line */}
+            <polyline fill="none" stroke="#10B981" strokeWidth="2" points={compPoints} />
+            <circle cx={x1} cy={c1} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
+            <circle cx={x2} cy={c2} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
+            <circle cx={x3} cy={c3} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
+            <circle cx={x4} cy={c4} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
+          </svg>
+
+          {/* X-Axis Labels */}
+          <div className="absolute -bottom-7 left-0 right-0 flex justify-between text-[10.5px] text-gray-400 font-medium">
+            <span className="w-1/4 text-left">{chartData.labels[0]}</span>
+            <span className="w-1/4 text-center">{chartData.labels[1]}</span>
+            <span className="w-1/4 text-center">{chartData.labels[2]}</span>
+            <span className="w-1/4 text-right">{chartData.labels[3]}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

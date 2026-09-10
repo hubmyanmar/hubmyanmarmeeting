@@ -68,8 +68,36 @@ export default function MetricCards({ filter }) {
             }
           }
         });
+        
         let currMeetings = 0, prevMeetings = 0;
         let currHours = 0, prevHours = 0;
+
+        // --- Helper Function to reliably calculate meeting hours ---
+        const getMeetingHours = (s) => {
+          // 1. Check if explicit durationHours exists
+          if (s.durationHours !== undefined && s.durationHours !== null) {
+            return Number(s.durationHours);
+          }
+          // 2. Check if explicit durationMinutes exists
+          if (s.durationMinutes !== undefined && s.durationMinutes !== null) {
+            return Number(s.durationMinutes) / 60;
+          }
+          // 3. Check for generic 'duration' field (assuming it's in minutes)
+          if (s.duration !== undefined && s.duration !== null) {
+            const val = Number(s.duration);
+            // If the value is very large, it might be in milliseconds. Handled dynamically.
+            if (val > 10000) return val / (1000 * 60 * 60); 
+            return val / 60;
+          }
+          // 4. Calculate from Start & End times if timestamps are available
+          const start = new Date(s.startedAt || s.startTime || s.createdAt || s.date);
+          const end = new Date(s.endedAt || s.endTime || s.completedAt);
+          
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+            return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Return difference in hours
+          }
+          return 0;
+        };
 
         sessionsArray.forEach((s) => {
           const d = new Date(s.startedAt || s.date || s.createdAt || s.timestamp);
@@ -77,7 +105,9 @@ export default function MetricCards({ filter }) {
 
           const y = d.getFullYear();
           const m = d.getMonth();
-          const durationHours = s.durationHours ?? (s.durationMinutes ? s.durationMinutes / 60 : 1) ?? 1;
+          
+          // Use the helper function here
+          const durationHours = getMeetingHours(s);
 
           if (isTargetPeriod(y, m)) {
             currMeetings += 1;
@@ -87,6 +117,7 @@ export default function MetricCards({ filter }) {
             prevHours += durationHours;
           }
         });
+        
         let currTotalAct = 0, currCompAct = 0, currOverdueAct = 0;
         let prevTotalAct = 0, prevCompAct = 0, prevOverdueAct = 0;
 
@@ -139,7 +170,8 @@ export default function MetricCards({ filter }) {
             isUp: meetingsDiff >= 0
           },
           hours: {
-            current: Number(currHours.toFixed(1)),
+            // Rounded to 1 decimal place to handle trailing numbers e.g. 1.5 hrs
+            current: Number(currHours.toFixed(1)), 
             diffPct: Math.abs(hoursDiff),
             isUp: hoursDiff >= 0
           },
