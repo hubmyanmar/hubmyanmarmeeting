@@ -48,7 +48,7 @@ export default function Reports({ bookedMeetings = [] }) {
     <div className="max-w-[1400px] mx-auto">
       <Header onFilterChange={(newFilter) => setFilter(newFilter)} />
       
-      <MetricCards />
+      <MetricCards filter={filter} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <DepartmentChart />
