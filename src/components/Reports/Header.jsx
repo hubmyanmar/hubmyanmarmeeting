@@ -30,11 +30,21 @@ export default function Header({ onFilterChange }) {
     if (onFilterChange) onFilterChange({ view: v, month: m, year: y });
   };
 
-  const label = view === 'year' ? year : (month === 'this_month' ? 'This Month' : month === 'last_month' ? 'Last Month' : MONTHS[month]);
+  const lastMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1;
+  const lastMonthName = MONTHS[lastMonthIndex];
+  
+  const label = view === 'year' 
+    ? year 
+    : (month === 'this_month' 
+        ? 'This Month' 
+        : month === 'last_month' 
+          ? lastMonthName 
+          : MONTHS[month]);
 
   const availableMonths = year === currentYear 
     ? MONTHS.slice(0, currentMonth + 1) 
     : (year < currentYear ? MONTHS : []);
+    
   const Item = ({ val, active, onClick }) => (
     <button onClick={onClick} className="w-full flex justify-between px-3.5 py-2 hover:bg-gray-50 text-gray-700 text-sm font-medium transition-colors">
       <span>{val}</span> {active && <Check className="w-4 h-4 text-blue-600" />}
@@ -61,7 +71,10 @@ export default function Header({ onFilterChange }) {
               {view === 'month' ? (
                 <>
                   <Item val="This Month" active={month === 'this_month'} onClick={() => handleChange('month', 'this_month', year)} />
-                  <Item val="Last Month" active={month === 'last_month'} onClick={() => handleChange('month', 'last_month', year)} />
+                  
+                  {/* 🎯 "Last Month" စာသားအစား လနာမည် (ဥပမာ - Aug) ကို ပြသပေးမည် */}
+                  <Item val={lastMonthName} active={month === 'last_month'} onClick={() => handleChange('month', 'last_month', year)} />
+                  
                   {availableMonths.map((m, i) => (
                     <Item key={m} val={m} active={month === i} onClick={() => handleChange('month', i, year)} />
                   ))}
