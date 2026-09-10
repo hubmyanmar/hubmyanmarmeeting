@@ -32,7 +32,7 @@ export default function Header({ onFilterChange }) {
 
   const lastMonthIndex = currentMonth === 0 ? 11 : currentMonth - 1;
   const lastMonthName = MONTHS[lastMonthIndex];
-  
+
   const label = view === 'year' 
     ? year 
     : (month === 'this_month' 
@@ -71,8 +71,6 @@ export default function Header({ onFilterChange }) {
               {view === 'month' ? (
                 <>
                   <Item val="This Month" active={month === 'this_month'} onClick={() => handleChange('month', 'this_month', year)} />
-                  
-                  {/* 🎯 "Last Month" စာသားအစား လနာမည် (ဥပမာ - Aug) ကို ပြသပေးမည် */}
                   <Item val={lastMonthName} active={month === 'last_month'} onClick={() => handleChange('month', 'last_month', year)} />
                   
                   {availableMonths.map((m, i) => (
