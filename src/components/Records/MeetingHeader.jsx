@@ -6,11 +6,11 @@ import {
 
 export default function MeetingHeader({ 
   // --- တကယ့် Meeting Booking Data များ ---
-  title = "BD Strategy Discussion", 
-  date = "2026-09-09",
-  startTime = "10:00 AM",
-  endTime = "11:30 AM",
-  room = "Meeting Room A",
+  title = "", 
+  date = "",
+  startTime = "",
+  endTime = "",
+  room = "",
   participants = [],
   
   status = "done",
@@ -134,7 +134,6 @@ export default function MeetingHeader({
           <h1 className="text-2xl lg:text-[28px] font-bold text-gray-900 mb-3">{title}</h1>
           
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-            {/* 🔥 UI တွင် အချက်အလက်အစစ်များ ပြောင်းထည့်ထားသည် */}
             <span className="flex items-center gap-1.5"><Calendar size={16}/> {formattedDate}</span>
             <span className="flex items-center gap-1.5"><Clock size={16}/> {startTime} - {endTime}</span>
             <span className="flex items-center gap-1.5"><MapPin size={16}/> {room}</span>
