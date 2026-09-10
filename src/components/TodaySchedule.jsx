@@ -156,7 +156,11 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
       [meetingId]: {
         status: 'running',
         startedAt: nowIso,
-        stoppedAt: null
+        stoppedAt: null,
+        room: item.room || item.originalData?.room || 'Unknown Room',
+        date: item.date || item.originalData?.date || nowIso.split('T')[0],
+        // 🎯 Original Meeting Data ပါ မှတ်ထားပေးလျှင် ပိုကောင်းပါသည်
+        originalData: item.originalData || item
       }
     };
 

@@ -37,7 +37,7 @@ export default function App() {
           <Route path="meeting-records" element={<MeetingRecords />} />
           <Route path="action-items" element={<ActionItem />} />
           <Route path="calendar" element={<Calendar />} />
-          <Route path="reports" element={<Reports />} />
+          <Route path="reports" element={<Reports bookedMeetings={bookedMeetings} />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
