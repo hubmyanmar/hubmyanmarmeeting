@@ -52,7 +52,7 @@ export default function Reports({ bookedMeetings = [] }) {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <DepartmentChart />
-        <ActionsChart />
+        <ActionsChart filter={filter} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
