@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { initialColumns } from '../data/actionItemData';
 import ActionNavbar from './ActionItem/ActionNavbar';
@@ -117,6 +117,16 @@ export default function ActionItem({ meetingData: propMeetingData }) {
   useEffect(() => {
     setColumns(loadActionItemsData(meetingData));
   }, [meetingData]);
+
+  const handleDateRangeChange = useCallback((start, end) => {
+    setDateRange((prevRange) => {
+      
+      if (prevRange.start === start && prevRange.end === end) {
+        return prevRange;
+      }
+      return { start, end };
+    });
+  }, []);
 
   const handleDragStart = (e, taskId, sourceColId) => {
     e.dataTransfer.setData("taskId", taskId);
@@ -312,7 +322,7 @@ export default function ActionItem({ meetingData: propMeetingData }) {
       <ActionNavbar 
         searchQuery={searchQuery} 
         onSearchChange={setSearchQuery} 
-        onDateRangeChange={(start, end) => setDateRange({ start, end })}
+        onDateRangeChange={handleDateRangeChange}
       />
 
       <div className="max-w-[1440px] mx-auto px-8 pt-8">

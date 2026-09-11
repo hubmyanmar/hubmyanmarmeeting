@@ -39,22 +39,6 @@ export default function MeetingNavbar({ searchQuery, onSearchChange }) {
           </svg>
           <span>Book New Meeting</span>
         </button>
-
-        {/* User Profile
-        <div className="flex items-center gap-3 pl-2 cursor-pointer">
-          <img
-            src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"
-            alt="Sarah Kim"
-            className="w-9 h-9 rounded-full object-cover border border-gray-200"
-          />
-          <div className="hidden lg:block text-left">
-            <p className="text-sm font-bold text-gray-900 leading-tight">Sarah Kim</p>
-            <p className="text-xs text-gray-400">Product Manager</p>
-          </div>
-          <svg className="w-3.5 h-3.5 text-gray-400 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </div> */}
       </div>
     </header>
   );
