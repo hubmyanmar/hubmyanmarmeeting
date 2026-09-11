@@ -1,16 +1,21 @@
+// src/components/ActionItem/KanbanColumn.jsx
 import React from 'react';
 import TaskCard from './TaskCard';
 
-export default function KanbanColumn({ column }) {
+export default function KanbanColumn({ column, onDragStart, onDrop }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div 
+      className="flex flex-col gap-3 min-h-[500px]" 
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => onDrop(e, column.id)}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <div className={`w-2.5 h-2.5 rounded-full ${column.dotColor}`} />
           <h3 className="text-sm font-bold text-gray-900">{column.title}</h3>
           <span className="text-xs font-semibold text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded-full">
-            {column.count}
+            {column.tasks.length}
           </span>
         </div>
         <button type="button" className="text-gray-400 hover:text-gray-600 p-1">
@@ -35,10 +40,15 @@ export default function KanbanColumn({ column }) {
       <div className="space-y-3">
         {column.tasks.length > 0 ? (
           column.tasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              columnId={column.id}
+              onDragStart={onDragStart}
+            />
           ))
         ) : (
-          <div className="py-8 text-center bg-white/40 rounded-2xl border border-dashed border-gray-200/60">
+          <div className="py-8 text-center bg-white/40 rounded-2xl border border-dashed border-gray-200/60 pointer-events-none">
             <p className="text-xs font-medium text-gray-400">No tasks found</p>
           </div>
         )}

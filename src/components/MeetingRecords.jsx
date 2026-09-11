@@ -38,12 +38,30 @@ export default function MeetingRecords({ selectedMeetingData: propMeetingData })
   const savedSessions = JSON.parse(localStorage.getItem('meetingSessions') || '{}');
   const storedSession = savedSessions[rawMeeting.id] || {};
 
-  //  Testing အတွက် Summary အတု ထည့်ထားခြင်း (ပေါ် မပေါ် စစ်ရန်)
+  // Testing အတွက် Summary အတု ထည့်ထားခြင်း (ပေါ် မပေါ် စစ်ရန်)
   const mockSummary = {
     englishSummary: "This is a test English summary for the meeting discussion.",
     myanmarSummary: "ဒါကတော့ အစည်းအဝေးအတွက် စမ်းသပ်ရေးသားထားတဲ့ မြန်မာလို အကျဉ်းချုပ် ဖြစ်ပါတယ်။",
-    keyDecisions: ["Decision 1: Approved budget", "Decision 2: Next meeting on Friday"],
-    actionItems: [{ task: "Prepare report", owner: "Aung Aung", dueDate: "2026-09-12", status: "Pending" }]
+    keyDecisions: [
+      "Decision 1: Approved budget",
+      "Decision 2: Next meeting on Friday"
+    ],
+    actionItems: [
+      {
+        task: "Prepare report",
+        owner: "Aung Aung",
+        dueDate: "2026-09-12",
+        status: "To Do",
+        priority: "High"
+      },
+      {
+        task: "Update budget",
+        owner: "Su Su",
+        dueDate: "2026-09-13",
+        status: "In Progress",
+        priority: "Low"
+      }
+    ],
   };
 
   const meeting = { ...rawMeeting, ...mockSummary, ...storedSession };
@@ -98,17 +116,34 @@ export default function MeetingRecords({ selectedMeetingData: propMeetingData })
 
   const onStopRecording = () => {
     const savedSessions = JSON.parse(localStorage.getItem('meetingSessions') || '{}');
-    const meetingId = meeting.id;
+    const meetingId = meeting.id || `meeting-${Date.now()}`;
     
-    if (meetingId) {
-      savedSessions[meetingId] = {
-        ...savedSessions[meetingId],
-        status: 'stopped',
-        stoppedAt: new Date().toISOString()
-      };
+    // 💡 Stop လုပ်လိုက်ချိန်တွင် Action Items များနှင့်တကွ Session အား localStorage သို့ သိမ်းဆည်းခြင်း
+    const completedSession = {
+      ...meeting,
+      id: meetingId,
+      title: meeting.title || "Untitled Meeting",
+      date: meeting.date || new Date().toLocaleDateString(),
+      createdAt: new Date().toISOString(),
+      status: 'stopped',
+      stoppedAt: new Date().toISOString(),
+      actionItems: meeting.actionItems || [],
+      keyDecisions: meeting.keyDecisions || []
+    };
+
+    if (Array.isArray(savedSessions)) {
+      const existingIndex = savedSessions.findIndex(s => s.id === meetingId);
+      if (existingIndex >= 0) {
+        savedSessions[existingIndex] = completedSession;
+      } else {
+        savedSessions.push(completedSession);
+      }
+      localStorage.setItem('meetingSessions', JSON.stringify(savedSessions));
+    } else {
+      savedSessions[meetingId] = completedSession;
+      localStorage.setItem('meetingSessions', JSON.stringify(savedSessions));
     }
 
-    localStorage.setItem('meetingSessions', JSON.stringify(savedSessions));
     window.dispatchEvent(new Event('sync-meeting-sessions'));
     
     if (handleStop) {
@@ -129,7 +164,6 @@ export default function MeetingRecords({ selectedMeetingData: propMeetingData })
           englishSummary={meeting?.englishSummary}
           myanmarSummary={meeting?.myanmarSummary}
           keyDecisions={meeting?.keyDecisions}
-          
         />
         <div className="mt-4">
           <ActionItem meetingData={meeting} />
@@ -185,20 +219,20 @@ export default function MeetingRecords({ selectedMeetingData: propMeetingData })
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 mt-2 items-start">
         <LeftPanel 
-        status={status}
-        timer={timer} 
-        formatTime={formatTime}
-        handlePause={handlePause} 
-        handleResume={handleResume} 
-        englishSummary={meeting.englishSummary}
-        myanmarSummary={meeting.myanmarSummary}
+          status={status}
+          timer={timer} 
+          formatTime={formatTime}
+          handlePause={handlePause} 
+          handleResume={handleResume} 
+          englishSummary={meeting.englishSummary}
+          myanmarSummary={meeting.myanmarSummary}
         />
         <RightPanel 
-        status={status} 
-        actionType={actionType}
-        liveTranscript={liveTranscript}
-        keyDecisions={meeting.keyDecisions}
-        actionItems={meeting.actionItems}
+          status={status} 
+          actionType={actionType}
+          liveTranscript={liveTranscript}
+          keyDecisions={meeting.keyDecisions}
+          actionItems={meeting.actionItems}
         />
       </div>
     </div>
