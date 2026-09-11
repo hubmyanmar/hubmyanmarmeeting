@@ -108,7 +108,7 @@ export default function DashboardHome() {
         </div>
       </div>
       
-      <BottomMetrics />
+      <BottomMetrics bookedMeetings={bookedMeetings} meetingSessions={meetingSessions} />
       
     </div>
   );
