@@ -111,8 +111,6 @@ export default function ActionItem({ meetingData: propMeetingData }) {
 
   const [columns, setColumns] = useState(() => loadActionItemsData(meetingData));
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // 💡 1. Date Range များကို သိမ်းဆည်းရန် State အသစ်
   const [dateRange, setDateRange] = useState({ start: null, end: null });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -156,6 +154,7 @@ export default function ActionItem({ meetingData: propMeetingData }) {
       return newCols;
     });
   };
+
   const filteredColumns = columns.map((col) => {
     const filteredTasks = col.tasks.filter((task) => {
       const query = searchQuery.toLowerCase().trim();
@@ -167,9 +166,7 @@ export default function ActionItem({ meetingData: propMeetingData }) {
       );
       let matchesDate = true;
       if (dateRange.start && dateRange.end && task.date) {
-        
         const rawDateStr = task.date.replace(/^(Due|Created|Recorded):\s*/i, '').split(',')[0].trim();
-        
         const taskDate = new Date(rawDateStr);
         const startDate = new Date(dateRange.start);
         const endDate = new Date(dateRange.end);
@@ -230,7 +227,6 @@ export default function ActionItem({ meetingData: propMeetingData }) {
     setIsModalOpen(false);
   };
 
-  
   const totalTasksCount = filteredColumns.reduce((acc, col) => acc + col.tasks.length, 0);
   const inProgressCol = filteredColumns.find(c => c.title.toLowerCase() === 'in progress');
   const inProgressCount = inProgressCol ? inProgressCol.tasks.length : 0;
@@ -239,11 +235,75 @@ export default function ActionItem({ meetingData: propMeetingData }) {
   const completedCol = filteredColumns.find(c => c.title.toLowerCase() === 'completed' || c.title.toLowerCase() === 'done');
   const completedCount = completedCol ? completedCol.tasks.length : 0;
 
+  // Helper function for percentage calculation
+  const calculateChange = (current, prev) => {
+    if (prev === 0) return current > 0 ? '+100%' : '0%';
+    const percent = ((current - prev) / prev) * 100;
+    return `${percent > 0 ? '+' : ''}${Math.round(percent)}%`;
+  };
+
+  let prevTotal = 0, prevInProgress = 0, prevReview = 0, prevCompleted = 0;
+  let periodLabel = "from previous period";
+
+  if (dateRange.start && dateRange.end) {
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+
+    const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    const years = end.getFullYear() - start.getFullYear();
+    const daysDiff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff >= 6 && daysDiff <= 8) {
+      periodLabel = "from last week";
+    } else if (months === 1 || (months === 0 && daysDiff >= 28)) {
+      periodLabel = "from last month";
+    } else if (months > 1 && months < 12) {
+      periodLabel = `from previous ${months} months`;
+    } else if (months === 12 || years === 1) {
+      periodLabel = "from last year";
+    } else if (years > 1) {
+      periodLabel = `from previous ${years} years`;
+    } else {
+      periodLabel = `from previous ${daysDiff} days`;
+    }
+
+    const durationMs = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 1); 
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+
+    columns.forEach(col => {
+      const prevTasks = col.tasks.filter(task => {
+        if (!task.date) return false;
+        const rawDateStr = task.date.replace(/^(Due|Created|Recorded):\s*/i, '').split(',')[0].trim();
+        const taskDate = new Date(rawDateStr);
+        
+        taskDate.setHours(0, 0, 0, 0);
+        const pStart = new Date(prevStart); pStart.setHours(0,0,0,0);
+        const pEnd = new Date(prevEnd); pEnd.setHours(23,59,59,999);
+        
+        return !isNaN(taskDate.getTime()) && taskDate >= pStart && taskDate <= pEnd;
+      });
+
+      const count = prevTasks.length;
+      prevTotal += count;
+      
+      const title = col.title.toLowerCase();
+      if (title === 'in progress') prevInProgress += count;
+      else if (title === 'under review' || title === 'overdue') prevReview += count;
+      else if (title === 'completed' || title === 'done') prevCompleted += count;
+    });
+  }
+
+  const totalChangeText = `${calculateChange(totalTasksCount, prevTotal)} ${periodLabel}`;
+  const inProgressChangeText = `${calculateChange(inProgressCount, prevInProgress)} ${periodLabel}`;
+  const reviewChangeText = `${calculateChange(reviewCount, prevReview)} ${periodLabel}`;
+  const completedChangeText = `${calculateChange(completedCount, prevCompleted)} ${periodLabel}`;
+
   const dynamicStats = [
-    { id: 1, type: 'list', title: 'Total Tasks', count: totalTasksCount, change: '+12% from last month', trendColor: 'text-emerald-600', bgColor: 'bg-indigo-50', iconColor: 'text-[#5538ee]', sparklinePath: 'M2 25L25 15L50 18L75 8L98 20L118 5' },
-    { id: 2, type: 'progress', title: 'In Progress', count: inProgressCount, change: '+2% from last month', trendColor: 'text-emerald-600', bgColor: 'bg-blue-50', iconColor: 'text-blue-600', sparklinePath: 'M2 20L25 22L50 12L75 15L98 8L118 12' },
-    { id: 3, type: 'overdue', title: 'Under Review', count: reviewCount, change: '+67% from last month', trendColor: 'text-rose-600', bgColor: 'bg-rose-50', iconColor: 'text-rose-600', sparklinePath: 'M2 10L25 18L50 8L75 22L98 12L118 18' },
-    { id: 4, type: 'completed', title: 'Completed', count: completedCount, change: '+22% from last month', trendColor: 'text-emerald-600', bgColor: 'bg-emerald-50', iconColor: 'text-emerald-600', sparklinePath: 'M2 22L25 15L50 18L75 10L98 15L118 4' }
+    { id: 1, type: 'list', title: 'Total Tasks', count: totalTasksCount, change: totalChangeText, trendColor: 'text-emerald-600', bgColor: 'bg-indigo-50', iconColor: 'text-[#5538ee]', sparklinePath: 'M2 25L25 15L50 18L75 8L98 20L118 5' },
+    { id: 2, type: 'progress', title: 'In Progress', count: inProgressCount, change: inProgressChangeText, trendColor: 'text-emerald-600', bgColor: 'bg-blue-50', iconColor: 'text-blue-600', sparklinePath: 'M2 20L25 22L50 12L75 15L98 8L118 12' },
+    { id: 3, type: 'overdue', title: 'Under Review', count: reviewCount, change: reviewChangeText, trendColor: 'text-rose-600', bgColor: 'bg-rose-50', iconColor: 'text-rose-600', sparklinePath: 'M2 10L25 18L50 8L75 22L98 12L118 18' },
+    { id: 4, type: 'completed', title: 'Completed', count: completedCount, change: completedChangeText, trendColor: 'text-emerald-600', bgColor: 'bg-emerald-50', iconColor: 'text-emerald-600', sparklinePath: 'M2 22L25 15L50 18L75 10L98 15L118 4' }
   ];
 
   return (
