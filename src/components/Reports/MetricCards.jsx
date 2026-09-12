@@ -27,7 +27,7 @@ export default function MetricCards({ filter }) {
             targetMonth = now.getMonth() - 1;
             if (targetMonth < 0) { targetMonth = 11; targetYear -= 1; }
           } else if (filter?.month !== 'this_month' && filter?.month !== undefined) {
-            const parsedM = parseInt(filter.month);
+            const parsedM = parseInt(filter.month, 10);
             targetMonth = parsedM > 11 ? parsedM - 1 : parsedM;
             if (filter.year) targetYear = filter.year;
           }
@@ -40,6 +40,7 @@ export default function MetricCards({ filter }) {
           if (filter?.year) targetYear = filter.year;
           prevYear = targetYear - 1;
         }
+
         const isTargetPeriod = (y, m) => {
           if (viewType === 'year') return y === targetYear;
           return y === targetYear && m === targetMonth;
@@ -55,58 +56,86 @@ export default function MetricCards({ filter }) {
         const sessionsArray = Array.isArray(sessions) ? sessions : Object.values(sessions);
 
         const actionKeys = ['actionItems', 'meetingActions', 'actions', 'tasks', 'meetingSessions'];
-        let actionsArray = [];
+        let rawActionsArray = [];
         actionKeys.forEach((key) => {
           const raw = localStorage.getItem(key);
           if (raw) {
             try {
               const parsed = JSON.parse(raw);
               const items = Array.isArray(parsed) ? parsed : Object.values(parsed || {});
-              actionsArray = [...actionsArray, ...items];
+              rawActionsArray = [...rawActionsArray, ...items];
             } catch (e) {
               console.error(`Error parsing ${key}:`, e);
             }
           }
         });
+
+        let actionsArray = [];
+        rawActionsArray.forEach((item) => {
+          if (!item) return;
+          if (Array.isArray(item.actionItems)) actionsArray.push(...item.actionItems);
+          else if (Array.isArray(item.actions)) actionsArray.push(...item.actions);
+          else actionsArray.push(item);
+        });
         
         let currMeetings = 0, prevMeetings = 0;
         let currHours = 0, prevHours = 0;
 
-        // --- Helper Function to reliably calculate meeting hours ---
         const getMeetingHours = (s) => {
-          // 1. Check if explicit durationHours exists
-          if (s.durationHours !== undefined && s.durationHours !== null) {
-            return Number(s.durationHours);
+          if (!s) return 0;
+
+          if (s.durationHours !== undefined && s.durationHours !== null) return Number(s.durationHours) || 0;
+          if (s.totalHours !== undefined && s.totalHours !== null) return Number(s.totalHours) || 0;
+          if (s.hours !== undefined && s.hours !== null) return Number(s.hours) || 0;
+
+          if (s.durationMinutes !== undefined && s.durationMinutes !== null) return (Number(s.durationMinutes) || 0) / 60;
+
+          if (typeof s.duration === 'string') {
+            if (s.duration.includes(':')) {
+              const parts = s.duration.split(':').map(Number);
+              if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                return parts[0] + parts[1] / 60;
+              }
+            }
+            const num = parseFloat(s.duration);
+            if (!isNaN(num)) return num > 12 ? num / 60 : num;
           }
-          // 2. Check if explicit durationMinutes exists
-          if (s.durationMinutes !== undefined && s.durationMinutes !== null) {
-            return Number(s.durationMinutes) / 60;
+
+          if (typeof s.duration === 'number' && !isNaN(s.duration)) {
+            if (s.duration > 10000) return s.duration / (1000 * 60 * 60);
+            return s.duration > 12 ? s.duration / 60 : s.duration; 
           }
-          // 3. Check for generic 'duration' field (assuming it's in minutes)
-          if (s.duration !== undefined && s.duration !== null) {
-            const val = Number(s.duration);
-            // If the value is very large, it might be in milliseconds. Handled dynamically.
-            if (val > 10000) return val / (1000 * 60 * 60); 
-            return val / 60;
-          }
-          // 4. Calculate from Start & End times if timestamps are available
-          const start = new Date(s.startedAt || s.startTime || s.createdAt || s.date);
-          const end = new Date(s.endedAt || s.endTime || s.completedAt);
+
           
-          if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
-            return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // Return difference in hours
+          const startDateVal = s.startedAt || s.startTime || s.createdAt || s.date;
+          const endDateVal = s.endedAt || s.endTime || s.completedAt;
+
+          if (startDateVal && endDateVal) {
+            let start = new Date(startDateVal);
+            let end = new Date(endDateVal);
+
+            if (isNaN(start.getTime()) && s.date && s.startTime) {
+              start = new Date(`${s.date} ${s.startTime}`);
+            }
+            if (isNaN(end.getTime()) && s.date && s.endTime) {
+              end = new Date(`${s.date} ${s.endTime}`);
+            }
+
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+              return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+            }
           }
+
           return 0;
         };
 
         sessionsArray.forEach((s) => {
-          const d = new Date(s.startedAt || s.date || s.createdAt || s.timestamp);
+          const d = new Date(s.startedAt || s.startTime || s.date || s.createdAt || s.timestamp);
           if (isNaN(d.getTime())) return;
 
           const y = d.getFullYear();
           const m = d.getMonth();
           
-          // Use the helper function here
           const durationHours = getMeetingHours(s);
 
           if (isTargetPeriod(y, m)) {
@@ -170,7 +199,6 @@ export default function MetricCards({ filter }) {
             isUp: meetingsDiff >= 0
           },
           hours: {
-            // Rounded to 1 decimal place to handle trailing numbers e.g. 1.5 hrs
             current: Number(currHours.toFixed(1)), 
             diffPct: Math.abs(hoursDiff),
             isUp: hoursDiff >= 0

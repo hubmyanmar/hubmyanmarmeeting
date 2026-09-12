@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Header from './Reports/Header';
 import MetricCards from './Reports/MetricCards';
 import DepartmentChart from './Reports/DepartmentChart';
@@ -13,42 +13,62 @@ export default function Reports({ bookedMeetings = [] }) {
     year: new Date().getFullYear()
   });
 
-  const filteredMeetings = bookedMeetings.filter((meeting) => {
-    const rawDate = meeting.date || meeting.startedAt || meeting.startTime;
-    if (!rawDate) return false;
+  const filteredMeetings = useMemo(() => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
 
-    const d = new Date(rawDate);
-    const meetingYear = d.getFullYear();
-    const meetingMonth = d.getMonth();
+    return bookedMeetings.filter((meeting) => {
+      const rawDate = meeting.date || meeting.startedAt || meeting.startTime;
+      if (!rawDate) return false;
 
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
+      const d = new Date(rawDate);
+      if (isNaN(d.getTime())) return false;
 
-    if (filter.view === 'year') {
-      return meetingYear === filter.year;
-    } 
-    
-    else if (filter.view === 'month') {
-      if (filter.month === 'this_month') {
-        return meetingYear === currentYear && meetingMonth === currentMonth;
-      } else if (filter.month === 'last_month') {
-        let lastM = currentMonth - 1;
-        let lastY = currentYear;
-        if (lastM < 0) { lastM = 11; lastY -= 1; }
-        return meetingYear === lastY && meetingMonth === lastM;
-      } else {
+      const meetingYear = d.getFullYear();
+      const meetingMonth = d.getMonth();
+
+      if (filter.view === 'year') {
+        return meetingYear === filter.year;
+      } 
       
-        return meetingYear === filter.year && meetingMonth === parseInt(filter.month);
+      if (filter.view === 'month') {
+        if (filter.month === 'this_month') {
+          return meetingYear === currentYear && meetingMonth === currentMonth;
+        } 
+        if (filter.month === 'last_month') {
+          const lastM = currentMonth === 0 ? 11 : currentMonth - 1;
+          const lastY = currentMonth === 0 ? currentYear - 1 : currentYear;
+          return meetingYear === lastY && meetingMonth === lastM;
+        } 
+        return meetingYear === filter.year && meetingMonth === parseInt(filter.month, 10);
       }
-    }
-    return false;
-  });
+      return false;
+    });
+  }, [bookedMeetings, filter]);
+
+  
+  const totalMeetingHours = useMemo(() => {
+    return filteredMeetings.reduce((acc, meeting) => {
+      
+      if (meeting.duration) return acc + Number(meeting.duration);
+      if (meeting.durationHours) return acc + Number(meeting.durationHours);
+
+      const start = new Date(meeting.startTime || meeting.startedAt);
+      const end = new Date(meeting.endTime || meeting.endedAt);
+      if (!isNaN(start) && !isNaN(end)) {
+        const diffInHours = (end - start) / (1000 * 60 * 60);
+        return acc + (diffInHours > 0 ? diffInHours : 0);
+      }
+      return acc;
+    }, 0);
+  }, [filteredMeetings]);
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <Header onFilterChange={(newFilter) => setFilter(newFilter)} />
+      <Header onFilterChange={setFilter} />
       
-      <MetricCards filter={filter} />
+     <MetricCards filter={filter} bookedMeetings={bookedMeetings} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <DepartmentChart />

@@ -19,11 +19,9 @@ export default function Header({ user, profileImage, setProfileImage }) {
       reader.onloadend = () => {
         const base64String = reader.result;
         setProfileImage(base64String);
-        
-        // 2. LocalStorage ထဲသိမ်းပါမည် (Refresh လုပ်လည်း မပျောက်အောင်)
         localStorage.setItem('savedProfileImage', base64String);
       };
-      reader.readAsDataURL(file); // ဖိုင်ကိုဖတ်ခြင်း စတင်ပါသည်
+      reader.readAsDataURL(file);
     }
   };
 
