@@ -159,7 +159,7 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
         stoppedAt: null,
         room: item.room || item.originalData?.room || 'Unknown Room',
         date: item.date || item.originalData?.date || nowIso.split('T')[0],
-        // 🎯 Original Meeting Data ပါ မှတ်ထားပေးလျှင် ပိုကောင်းပါသည်
+        
         originalData: item.originalData || item
       }
     };
@@ -182,9 +182,9 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
   const dynamicScheduleData = bookedMeetings
     .filter(m => m.date === todayDate)
     .sort((a, b) => parseTimeToDate(a.startTime) - parseTimeToDate(b.startTime))
-    .map((meeting) => {
+    .map((meeting, index) => {
       // Create a stable unique identifier
-      const meetingId = meeting.id || `meeting_${meeting.title}_${meeting.startTime}`.replace(/[^a-zA-Z0-9]/g, '_');
+      const meetingId = meeting.id || `meeting_${index}_${meeting.title}_${meeting.startTime}`.replace(/[^a-zA-Z0-9]/g, '_');
       
       const start = parseTimeToDate(meeting.startTime);
       const diffStartMs = start - currentTime;

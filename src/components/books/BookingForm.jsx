@@ -13,7 +13,22 @@ const AVAILABLE_USERS = [
   { name: "Htet Htet", email: "htethtet@example.com" }
 ];
 
-const companies = ["Company A", "Company B", "Company C"];
+const companies = [
+  "Hub Myanmar", 
+  "On Doctor",
+  "Pan Set Lann", 
+  "First Step Global",
+  "Kyal Sin Akhaya", 
+  "Biota Myanamr", 
+  "Twa Win Akariz",
+  "Pan Asia Partners", 
+  "Pacific Rise Group", 
+  "Horizon Marinen Energy", 
+  "Unity Business Partners", 
+  "Apex Care", 
+  "Premium Capital Group", 
+  "Eastern Valley Partners"
+];
 
 const getTodayDate = () => {
   const today = new Date();
@@ -99,6 +114,11 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const [showOverflow, setShowOverflow] = useState(false);
   const dropdownRef = useRef(null);
 
+  // Company Search states
+  const [companyInput, setCompanyInput] = useState("");
+  const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
+  const companyDropdownRef = useRef(null);
+
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
 
@@ -106,6 +126,9 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowSuggestions(false);
+      }
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target)) {
+        setShowCompanySuggestions(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -173,7 +196,9 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const handleClear = () => {
     setData(INITIAL_FORM_STATE);
     setInviteeInput("");
+    setCompanyInput("");
     setShowOverflow(false);
+    setShowCompanySuggestions(false);
     if (onClear && typeof onClear === 'function') onClear();
   };
 
@@ -185,7 +210,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
 
     if (onBook && typeof onBook === 'function') {
       onBook(data); 
-      
       handleClear(); 
     }
   };
@@ -194,13 +218,18 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const visibleParticipants = data?.participants?.slice(0, displayCount) || [];
   const remainingCount = (data?.participants?.length || 0) - displayCount;
 
-  // Search Filter
+  // Search Filter for Participants
   const availableSuggestions = AVAILABLE_USERS.filter(user => {
     const isMatch = user.name.toLowerCase().includes(inviteeInput.toLowerCase()) || 
                     user.email.toLowerCase().includes(inviteeInput.toLowerCase());
     const isAlreadyAdded = (data?.participants || []).some(p => p.email === user.email);
     return isMatch && !isAlreadyAdded;
   });
+
+  // Search Filter for Companies
+  const availableCompanySuggestions = companies.filter(companyName =>
+    companyName.toLowerCase().includes(companyInput.toLowerCase())
+  );
 
   return (
     <div className="flex-1 flex flex-col gap-5 bg-white p-2">
@@ -278,25 +307,60 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         </select>
       </div>
       
-      {/* Company */}
+      {/* Company Name (Participants Style) */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Company Name <span className="text-red-500">*</span> {/* <--- * လေးထည့်ထားပါတယ် */}
+          Company Name <span className="text-red-500">*</span>
         </label>
-        <select 
-          name="company" 
-          value={data?.company || ""} 
-          onChange={handleChange} 
-          required 
-          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-        >
-          <option value="">Select a Company</option>
-          {companies.map((companyName) => (
-            <option key={companyName} value={companyName}>
-              {companyName}
-            </option>
-          ))}
-        </select>
+
+        {/* Selected Company Tag / Badge */}
+        {data?.company && (
+          <div className="flex items-center mb-2">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 shadow-sm">
+              {data.company}
+              <button 
+                type="button"
+                onClick={() => setData(prev => ({ ...prev, company: "" }))}
+                className="w-4 h-4 rounded-full hover:bg-indigo-200 text-indigo-500 hover:text-indigo-800 flex items-center justify-center text-xs transition-colors"
+              >
+                &times;
+              </button>
+            </span>
+          </div>
+        )}
+
+        {/* Searchable Input & Dropdown */}
+        <div className="relative" ref={companyDropdownRef}>
+          <input 
+            type="text" 
+            placeholder={data?.company ? "Change company..." : "Search or select company..."}
+            value={companyInput}
+            onChange={(e) => {
+              setCompanyInput(e.target.value);
+              setShowCompanySuggestions(true);
+            }}
+            onFocus={() => setShowCompanySuggestions(true)}
+            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
+          />
+          
+          {showCompanySuggestions && availableCompanySuggestions.length > 0 && (
+            <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+              {availableCompanySuggestions.map((companyName, idx) => (
+                <li 
+                  key={idx} 
+                  onClick={() => {
+                    setData(prev => ({ ...prev, company: companyName }));
+                    setCompanyInput("");
+                    setShowCompanySuggestions(false);
+                  }}
+                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
+                >
+                  {companyName}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* Participants */}

@@ -72,7 +72,8 @@ export default function BookMeeting({ setBookedMeetings }) {
       date: data.date,
       startTime: data.startTime,
       endTime: data.endTime,
-      participants: data.participants
+      participants: data.participants,
+      company: data.company
     };
 
     const updatedMeetings = [...bookedMeetings, newBooking];

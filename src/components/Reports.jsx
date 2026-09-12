@@ -71,13 +71,13 @@ export default function Reports({ bookedMeetings = [] }) {
      <MetricCards filter={filter} bookedMeetings={bookedMeetings} />
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <DepartmentChart />
+        <DepartmentChart bookedMeetings={filteredMeetings} />
         <ActionsChart filter={filter} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TopRooms bookedMeetings={filteredMeetings} filter={filter} />
-        <OverdueActions />
+        <OverdueActions bookedMeetings={filteredMeetings} />
       </div>
     </div>
   );

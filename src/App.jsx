@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom'; 
 import AuthCard from './Auth/AuthCard'; 
 import Dashboard from './Dashboard'; 
@@ -16,7 +16,24 @@ import { RecordingProvider } from './context/RecordingContext';
 
 export default function App() {
 
-  const [bookedMeetings, setBookedMeetings] = useState([]);
+  const [bookedMeetings, setBookedMeetings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bookedMeetings');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Error loading booked meetings from storage:", e);
+      return [];
+    }
+  });
+
+  // ၂။ bookedMeetings ပြောင်းလဲတိုင်း localStorage ထဲသို့ အလိုအလျောက် သိမ်းမည်
+  useEffect(() => {
+    try {
+      localStorage.setItem('bookedMeetings', JSON.stringify(bookedMeetings));
+    } catch (e) {
+      console.error("Error saving booked meetings to storage:", e);
+    }
+  }, [bookedMeetings]);
 
   const handleBookMeeting = (newMeeting) => {
     setBookedMeetings((prev) => [...prev, newMeeting]);
