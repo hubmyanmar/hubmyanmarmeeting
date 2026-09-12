@@ -60,6 +60,10 @@ export default function BookMeeting({ setBookedMeetings }) {
       showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Meeting Room ရွေးချယ်ပေးပါ။');
       return;
     }
+    if (!data.company) {
+      showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Company Name ရွေးချယ်ပေးပါ။');
+      return;
+    }
 
     const newBooking = {
       title: data.title,

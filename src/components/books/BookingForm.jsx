@@ -13,6 +13,8 @@ const AVAILABLE_USERS = [
   { name: "Htet Htet", email: "htethtet@example.com" }
 ];
 
+const companies = ["Company A", "Company B", "Company C"];
+
 const getTodayDate = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -33,6 +35,7 @@ const getInitials = (name) => {
 const INITIAL_FORM_STATE = {
   title: "",
   purpose: "",
+  company: "",
   date: getTodayDate(), 
   startTime: "09:00 AM",
   endTime: "10:00 AM",
@@ -272,6 +275,27 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
               </option>
             );
           })}
+        </select>
+      </div>
+      
+      {/* Company */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Company Name <span className="text-red-500">*</span> {/* <--- * လေးထည့်ထားပါတယ် */}
+        </label>
+        <select 
+          name="company" 
+          value={data?.company || ""} 
+          onChange={handleChange} 
+          required 
+          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+        >
+          <option value="">Select a Company</option>
+          {companies.map((companyName) => (
+            <option key={companyName} value={companyName}>
+              {companyName}
+            </option>
+          ))}
         </select>
       </div>
 
