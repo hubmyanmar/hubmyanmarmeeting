@@ -22,7 +22,7 @@ const initialData = {
   inviteCliq: true
 };
 
-export default function BookMeeting({ setBookedMeetings }) {
+export default function BookMeeting({ setBookedMeetings, currentUser}) {
   const [data, setData] = useState(initialData);
 
   const getStoredMeetings = () => {
@@ -73,7 +73,8 @@ export default function BookMeeting({ setBookedMeetings }) {
       startTime: data.startTime,
       endTime: data.endTime,
       participants: data.participants,
-      company: data.company
+      company: data.company,
+      organizer: currentUser?.fullName || currentUser?.name || 'User'
     };
 
     const updatedMeetings = [...bookedMeetings, newBooking];
@@ -83,6 +84,7 @@ export default function BookMeeting({ setBookedMeetings }) {
     if (typeof setBookedMeetings === 'function') {
       setBookedMeetings(updatedMeetings);
     }
+    window.dispatchEvent(new Event('sync-booked-meetings'));
     
     showAlert(
       'success', 

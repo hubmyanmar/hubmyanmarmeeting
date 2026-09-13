@@ -26,7 +26,15 @@ export default function App() {
     }
   });
 
-  // ၂။ bookedMeetings ပြောင်းလဲတိုင်း localStorage ထဲသို့ အလိုအလျောက် သိမ်းမည်
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('currentUser');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   useEffect(() => {
     try {
       localStorage.setItem('bookedMeetings', JSON.stringify(bookedMeetings));
@@ -42,15 +50,20 @@ export default function App() {
   return (
     <RecordingProvider>
       <Routes>
-        <Route path="/" element={<AuthCard />} />
-        <Route path="/dashboard" element={<Dashboard />}>
-          <Route index element={<DashboardHome bookedMeetings={bookedMeetings} />} />
+        
+        <Route path="/" element={<AuthCard setCurrentUser={setCurrentUser} />} />
+        <Route path="/dashboard" element={<Dashboard currentUser={currentUser} />}>
+          <Route index element={<DashboardHome bookedMeetings={bookedMeetings} currentUser={currentUser} />} />
           <Route path="my-meetings" element={<MyMeetings bookedMeetings={bookedMeetings} />} />
           <Route 
             path="book-meeting" 
-            element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} />} 
+            element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
           />
-          <Route path="meeting-rooms" element={<MeetingRooms />} />
+          <Route 
+            path="meeting-rooms" 
+            element={<MeetingRooms bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
+          />
+          
           <Route path="meeting-records" element={<MeetingRecords />} />
           <Route path="action-items" element={<ActionItem />} />
           <Route path="calendar" element={<Calendar />} />

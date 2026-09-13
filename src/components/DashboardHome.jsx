@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import TopStats from './TopStats';
 import TodaySchedule from './TodaySchedule';
 import AiSummaryBanner from './AiSummaryBanner';
@@ -24,10 +25,19 @@ const parseMeetingDateTime = (dateStr, timeStr) => {
 };
 
 export default function DashboardHome() {
+  const location = useLocation();
+  const [currentUser, setCurrentUser] = useState(
+    location.state?.user || JSON.parse(localStorage.getItem('currentUser')) || null
+  );
+
   const [bookedMeetings, setBookedMeetings] = useState([]);
   const [meetingSessions, setMeetingSessions] = useState({});
 
   useEffect(() => {
+    if (location.state?.user) {
+      localStorage.setItem('currentUser', JSON.stringify(location.state.user));
+    }
+
     const loadData = () => {
       try {
         const meetings = localStorage.getItem('bookedMeetings');
@@ -100,7 +110,7 @@ export default function DashboardHome() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-6">
-          <TodaySchedule bookedMeetings={todayMeetings} />
+          <TodaySchedule bookedMeetings={todayMeetings} currentUser={currentUser} />
           <AiSummaryBanner />
         </div>
         <div className="lg:col-span-1 flex flex-col gap-6">
