@@ -2,9 +2,9 @@ import React from 'react';
 
 export default function MeetingHeader({ activeTab, onTabChange, activeView, onViewChange, counts }) {
   const tabs = [
-    { id: 'all', label: 'All Meetings', count: counts?.all || 8 },
-    { id: 'upcoming', label: 'Upcoming', count: counts?.upcoming || 5 },
-    { id: 'past', label: 'Past', count: counts?.past || 3 },
+    { id: 'all', label: 'All Meetings', count: counts?.all },
+    { id: 'upcoming', label: 'Upcoming', count: counts?.upcoming },
+    { id: 'past', label: 'Past', count: counts?.past },
   ];
 
   return (

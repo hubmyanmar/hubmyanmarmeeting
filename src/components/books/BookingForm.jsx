@@ -55,6 +55,8 @@ const INITIAL_FORM_STATE = {
   startTime: "09:00 AM",
   endTime: "10:00 AM",
   room: "",
+  meetingType: "Face to Face", // Added default Meeting Type
+  platform: "", // Added default Platform
   participants: [],
   inviteCliq: false
 };
@@ -114,7 +116,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const [showOverflow, setShowOverflow] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Company Search states
   const [companyInput, setCompanyInput] = useState("");
   const [showCompanySuggestions, setShowCompanySuggestions] = useState(false);
   const companyDropdownRef = useRef(null);
@@ -150,7 +151,12 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value,
+      // Reset platform if changed to Face to Face
+      ...(name === 'meetingType' && value === 'Face to Face' ? { platform: "" } : {})
+    }));
   };
 
   const handleTimeChange = (e) => {
@@ -207,10 +213,9 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
       alert("Past dates cannot be selected for a meeting.");
       return;
     }
-
     if (onBook && typeof onBook === 'function') {
       onBook(data); 
-      handleClear(); 
+      // handleClear()
     }
   };
 
@@ -218,7 +223,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const visibleParticipants = data?.participants?.slice(0, displayCount) || [];
   const remainingCount = (data?.participants?.length || 0) - displayCount;
 
-  // Search Filter for Participants
   const availableSuggestions = AVAILABLE_USERS.filter(user => {
     const isMatch = user.name.toLowerCase().includes(inviteeInput.toLowerCase()) || 
                     user.email.toLowerCase().includes(inviteeInput.toLowerCase());
@@ -226,7 +230,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
     return isMatch && !isAlreadyAdded;
   });
 
-  // Search Filter for Companies
   const availableCompanySuggestions = companies.filter(companyName =>
     companyName.toLowerCase().includes(companyInput.toLowerCase())
   );
@@ -255,7 +258,7 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         />
       </div>
 
-      {/* Date & Time Row (Responsive) */}
+      {/* Date & Time Row */}
       <div className="flex flex-col md:flex-row gap-4">
         {/* Date */}
         <div className="flex-1">
@@ -286,11 +289,53 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         </div>
       </div>
 
+      {/* Meeting Type */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Meeting Type <span className="text-red-500">*</span>
+          </label>
+          <select 
+            name="meetingType" 
+            value={data?.meetingType || "Face to Face"} 
+            onChange={handleChange} 
+            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+          >
+            <option value="Face to Face">Face to Face</option>
+            <option value="Online">Online</option>
+          </select>
+        </div>
+
+        {/* Conditional Platform selection if Online is chosen */}
+        {data?.meetingType === "Online" && (
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Platform <span className="text-red-500">*</span>
+            </label>
+            <select 
+              name="platform" 
+              value={data?.platform || ""} 
+              onChange={handleChange} 
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
+            >
+              <option value="" disabled>Select Platform</option>
+              <option value="Zoom">Zoom</option>
+              <option value="Zoho Cliq">Zoho Cliq</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        )}
+      </div>
+      
       {/* Meeting Room */}
       <div>
         <div className="flex justify-between mb-1">
           <label className="block text-sm font-medium text-gray-700">
-            Meeting Room <span className="text-red-500">*</span>
+            Meeting Room {data?.meetingType === "Online" ? (
+              <span className="text-gray-400 font-normal">(Optional for Online)</span>
+            ) : (
+              <span className="text-red-500">*</span>
+            )}
           </label>
           <button type="button" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Check Availability</button>
         </div>
@@ -306,14 +351,14 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           })}
         </select>
       </div>
+    
       
-      {/* Company Name (Participants Style) */}
+      {/* Company Name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Company Name <span className="text-red-500">*</span>
         </label>
 
-        {/* Selected Company Tag / Badge */}
         {data?.company && (
           <div className="flex items-center mb-2">
             <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 shadow-sm">
@@ -329,7 +374,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           </div>
         )}
 
-        {/* Searchable Input & Dropdown */}
         <div className="relative" ref={companyDropdownRef}>
           <input 
             type="text" 
@@ -367,7 +411,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Participants</label>
         
-        {/* Avatars Stack & Overflow Dropdown */}
         {data?.participants?.length > 0 && (
           <div className="flex items-center mb-3 -space-x-2">
             {visibleParticipants.map((p, i) => (
@@ -427,7 +470,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           </div>
         )}
 
-        {/* Custom Dropdown Input */}
         <div className="relative" ref={dropdownRef}>
           <input 
             type="text" 

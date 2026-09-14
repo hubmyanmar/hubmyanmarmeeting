@@ -14,9 +14,12 @@ const getTodayDate = () => {
 const initialData = {
   title: "",
   purpose: "",
+  company: "",
   date: getTodayDate(),
   startTime: "09:00 AM",
   endTime: "10:00 AM",
+  meetingType: "Face to Face",
+  platform: "",
   room: "",
   participants: [],
   inviteCliq: true
@@ -56,18 +59,24 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
       showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Meeting ပြုလုပ်မည့် Date ရွေးချယ်ပေးပါ။');
       return;
     }
-    if (!data.room) {
+    if (!data.company) {
+      showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Company Name ရွေးချယ်ပေးပါ။');
+      return;
+    }
+    if (data.meetingType === "Face to Face" && !data.room) {
       showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Meeting Room ရွေးချယ်ပေးပါ။');
       return;
     }
-    if (!data.company) {
-      showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Company Name ရွေးချယ်ပေးပါ။');
+    if (data.meetingType === "Online" && !data.platform) {
+      showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Meeting Platform (e.g., Zoom) ရွေးချယ်ပေးပါ။');
       return;
     }
 
     const newBooking = {
       title: data.title,
       purpose: data.purpose,
+      meetingType: data.meetingType,
+      platform: data.platform,
       room: data.room,
       date: data.date,
       startTime: data.startTime,
@@ -85,11 +94,12 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
       setBookedMeetings(updatedMeetings);
     }
     window.dispatchEvent(new Event('sync-booked-meetings'));
+    const locationText = data.meetingType === "Online" ? `${data.platform} (Online)` : data.room;
     
     showAlert(
       'success', 
       'အောင်မြင်ပါသည်!', 
-      `${data.room} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking ရရှိပါပြီ။`
+      `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking ရရှိပါပြီ။`
     );
 
     handleClear();
