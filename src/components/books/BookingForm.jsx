@@ -55,8 +55,8 @@ const INITIAL_FORM_STATE = {
   startTime: "09:00 AM",
   endTime: "10:00 AM",
   room: "",
-  meetingType: "Face to Face", // Added default Meeting Type
-  platform: "", // Added default Platform
+  meetingType: "Face to Face",
+  platform: "",
   participants: [],
   inviteCliq: false
 };
@@ -154,7 +154,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
     setData(prev => ({ 
       ...prev, 
       [name]: type === 'checkbox' ? checked : value,
-      // Reset platform if changed to Face to Face
       ...(name === 'meetingType' && value === 'Face to Face' ? { platform: "" } : {})
     }));
   };
@@ -208,17 +207,38 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
     if (onClear && typeof onClear === 'function') onClear();
   };
 
-  const handleBookClick = () => {
+ const handleBookClick = () => {
     if (data?.date < getTodayDate()) {
       alert("Past dates cannot be selected for a meeting.");
       return;
     }
+
+    let finalMeetingData = { ...data };
+    
+    // Online ဖြစ်ပါက Platform အလိုက် Meeting Link အလိုအလျောက် Generate လုပ်ပေးခြင်း
+    if (data?.meetingType === "Online" && data?.platform) {
+      let generatedLink = "";
+      
+      if (data.platform === "Zoom") {
+        // Zoom လက်ခံနိုင်သော ဂဏန်း ၁၀ လုံးပါသော Random Meeting ID ကို ဖန်တီးပေးခြင်း
+        const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000);
+        generatedLink = `https://zoom.us/j/${randomDigits}`;
+      } else if (data.platform === "Zoho Cliq") {
+        const randomId = Math.random().toString(36).substring(2, 9);
+        generatedLink = `https://cliq.zoho.com/meeting/${randomId}`;
+      } else {
+        const randomId = Math.random().toString(36).substring(2, 9);
+        generatedLink = `https://meet.example.com/${randomId}`;
+      }
+
+      finalMeetingData.meetingLink = generatedLink;
+    }
+
     if (onBook && typeof onBook === 'function') {
-      onBook(data); 
-      // handleClear()
+      onBook(finalMeetingData); 
     }
   };
-
+  
   const displayCount = 5;
   const visibleParticipants = data?.participants?.slice(0, displayCount) || [];
   const remainingCount = (data?.participants?.length || 0) - displayCount;
@@ -306,7 +326,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           </select>
         </div>
 
-        {/* Conditional Platform selection if Online is chosen */}
         {data?.meetingType === "Online" && (
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -326,7 +345,7 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           </div>
         )}
       </div>
-      
+
       {/* Meeting Room */}
       <div>
         <div className="flex justify-between mb-1">
@@ -351,7 +370,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           })}
         </select>
       </div>
-    
       
       {/* Company Name */}
       <div>

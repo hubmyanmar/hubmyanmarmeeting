@@ -2,6 +2,26 @@ import React, { useState, useEffect } from 'react';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const upper = timeStr.trim().toUpperCase();
+  let hours = 0, minutes = 0;
+  if (upper.includes('AM') || upper.includes('PM')) {
+    const isPM = upper.includes('PM');
+    const isAM = upper.includes('AM');
+    const [h, m] = upper.replace('AM', '').replace('PM', '').trim().split(':');
+    hours = parseInt(h, 10) || 0;
+    minutes = parseInt(m, 10) || 0;
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+  } else {
+    const [h, m] = upper.split(':');
+    hours = parseInt(h, 10) || 0;
+    minutes = parseInt(m, 10) || 0;
+  }
+  return hours * 60 + minutes;
+};
+
 export default function ActionsChart({ filter }) {
   const [chartData, setChartData] = useState({
     completed: [0, 0, 0, 0],
@@ -17,8 +37,9 @@ export default function ActionsChart({ filter }) {
         const rawActions = localStorage.getItem('actions');
         const rawTasks = localStorage.getItem('tasks');
         const rawMeetingSessions = localStorage.getItem('meetingSessions');
+        const rawBookedMeetings = localStorage.getItem('bookedMeetings');
 
-        let savedActions = rawActionItems || rawMeetingActions || rawActions || rawTasks;
+        let savedActions = rawActionItems || rawMeetingActions || rawActions || rawTasks || rawBookedMeetings;
         let actions = savedActions ? JSON.parse(savedActions) : [];
 
         if (!actions || (Array.isArray(actions) && actions.length === 0) || (typeof actions === 'object' && Object.keys(actions).length === 0)) {
@@ -66,10 +87,24 @@ export default function ActionsChart({ filter }) {
               isMatch = (actionYear === filter.year) && (actionMonth === fMonth || actionMonth === fMonth - 1);
             }
           }
-
           const statusStr = (action.status || '').toLowerCase();
           const isCompleted = statusStr === 'completed' || statusStr === 'done' || statusStr === 'stopped' || action.completed === true || action.isChecked === true;
-          const isOverdue = statusStr === 'overdue' || statusStr === 'pending' || action.isOverdue === true;
+          let isOverdue = false;
+          if (!isCompleted) {
+            if (statusStr === 'overdue' || action.isOverdue === true) {
+              isOverdue = true;
+            } else if (rawDate) {
+              const actionDate = new Date(rawDate);
+              const timeStr = action.endTime || action.startTime || "09:00 AM";
+              const totalMinutes = parseTimeToMinutes(timeStr);
+              
+              actionDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
+
+              if (now - actionDate > 0) {
+                isOverdue = true;
+              }
+            }
+          }
 
           if (isMatch) {
             let index = 0;
@@ -128,11 +163,8 @@ export default function ActionsChart({ filter }) {
     };
   }, [filter]);
 
-  // Max Scale 40 ပုံသေထားရှိခြင်း
   const maxDataVal = Math.max(...chartData.completed, ...chartData.overdue, 0);
   const max = Math.max(40, Math.ceil(maxDataVal / 10) * 10);
-
-  // 0 တန်ဖိုးဖြစ်လျှင် y = 95 (0 Line)၊ Max (40) ဖြစ်လျှင် y = 5 ဖြစ်အောင် Padding ပေးထားပါသည်
   const getY = (val) => {
     const bottom0Line = 95; // 0 baseline position
     const topMaxLine = 5;    // Top max position

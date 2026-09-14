@@ -1,6 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const upper = timeStr.trim().toUpperCase();
+  let hours = 0, minutes = 0;
+  if (upper.includes('AM') || upper.includes('PM')) {
+    const isPM = upper.includes('PM');
+    const isAM = upper.includes('AM');
+    const [h, m] = upper.replace('AM', '').replace('PM', '').trim().split(':');
+    hours = parseInt(h, 10) || 0;
+    minutes = parseInt(m, 10) || 0;
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
+  } else {
+    const [h, m] = upper.split(':');
+    hours = parseInt(h, 10) || 0;
+    minutes = parseInt(m, 10) || 0;
+  }
+  return hours * 60 + minutes;
+};
+
 export default function MetricCards({ filter }) {
   const [metrics, setMetrics] = useState({
     meetings: { current: 0, diffPct: 0, isUp: true },
@@ -55,8 +75,10 @@ export default function MetricCards({ filter }) {
         const sessions = rawSessions ? JSON.parse(rawSessions) : {};
         const sessionsArray = Array.isArray(sessions) ? sessions : Object.values(sessions);
 
-        const actionKeys = ['actionItems', 'meetingActions', 'actions', 'tasks', 'meetingSessions'];
+        // ဤနေရာတွင် 'bookedMeetings' ကို ထည့်သွင်းပေးထားပါသည်
+        const actionKeys = ['actionItems', 'meetingActions', 'actions', 'tasks', 'meetingSessions', 'bookedMeetings'];
         let rawActionsArray = [];
+        
         actionKeys.forEach((key) => {
           const raw = localStorage.getItem(key);
           if (raw) {
@@ -83,11 +105,9 @@ export default function MetricCards({ filter }) {
 
         const getMeetingHours = (s) => {
           if (!s) return 0;
-
           if (s.durationHours !== undefined && s.durationHours !== null) return Number(s.durationHours) || 0;
           if (s.totalHours !== undefined && s.totalHours !== null) return Number(s.totalHours) || 0;
           if (s.hours !== undefined && s.hours !== null) return Number(s.hours) || 0;
-
           if (s.durationMinutes !== undefined && s.durationMinutes !== null) return (Number(s.durationMinutes) || 0) / 60;
 
           if (typeof s.duration === 'string') {
@@ -106,7 +126,6 @@ export default function MetricCards({ filter }) {
             return s.duration > 12 ? s.duration / 60 : s.duration; 
           }
 
-          
           const startDateVal = s.startedAt || s.startTime || s.createdAt || s.date;
           const endDateVal = s.endedAt || s.endTime || s.completedAt;
 
@@ -125,7 +144,6 @@ export default function MetricCards({ filter }) {
               return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
             }
           }
-
           return 0;
         };
 
@@ -135,7 +153,6 @@ export default function MetricCards({ filter }) {
 
           const y = d.getFullYear();
           const m = d.getMonth();
-          
           const durationHours = getMeetingHours(s);
 
           if (isTargetPeriod(y, m)) {
@@ -165,8 +182,25 @@ export default function MetricCards({ filter }) {
           const m = d.getMonth();
 
           const statusStr = (a.status || '').toLowerCase();
+          
           const isComp = statusStr === 'completed' || statusStr === 'done' || statusStr === 'stopped' || a.completed === true || a.isChecked === true || a.isCompleted === true;
-          const isOver = statusStr === 'overdue' || statusStr === 'pending' || a.isOverdue === true;
+          
+          let isOver = false;
+          if (!isComp) {
+            if (statusStr === 'overdue' || statusStr === 'pending' || a.isOverdue === true) {
+              isOver = true;
+            } else {
+              const actionDate = new Date(d.getTime());
+              const timeStr = a.endTime || a.startTime || "09:00 AM";
+              const totalMinutes = parseTimeToMinutes(timeStr);
+              
+              actionDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
+
+              if (now - actionDate > 0) {
+                isOver = true;
+              }
+            }
+          }
 
           if (isTargetPeriod(y, m)) {
             currTotalAct += 1;
@@ -282,7 +316,7 @@ export default function MetricCards({ filter }) {
         </div>
         <div className={`flex items-center gap-1 text-xs font-medium ${metrics.overdue.isUp ? 'text-rose-600' : 'text-emerald-600'}`}>
           {metrics.overdue.isUp ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-          <span>{metrics.overdue.diffCount} vs {compareLabel}</span>
+          <span>{Math.abs(metrics.overdue.diffCount)} vs {compareLabel}</span>
         </div>
       </div>
     </div>

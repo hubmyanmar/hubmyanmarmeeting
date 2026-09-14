@@ -51,7 +51,9 @@ export default function MyMeetings({ bookedMeetings = [] }) {
       statusColor: b.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
       title: b.title || 'Untitled Meeting',
       time: b.startTime && b.endTime ? `${b.startTime} - ${b.endTime}` : '09:00 AM - 10:00 AM',
-      location: b.room || (b.meetingType === 'ONLINE' ? 'Online Meeting' : 'Physical Room'),
+      location: b.meetingType?.trim().toLowerCase() === 'online'
+        ? 'Online Meeting'
+        : (b.room || 'Physical Room'),
       participantsList: participantsList,
       total: `${count} Participants`,
       desc: b.purpose || 'No purpose description provided.'

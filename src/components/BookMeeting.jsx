@@ -49,7 +49,8 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
     });
   };
 
-  const handleBook = () => {
+  // BookingForm က ပို့ပေးလိုက်သော finalMeetingData ကို parameter အနေဖြင့် လက်ခံရန် (submittedData)
+  const handleBook = (submittedData) => {
     // 1. Data Validations
     if (!data.title?.trim()) {
       showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Meeting Title ဖြည့်ပေးပါ။');
@@ -83,7 +84,9 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
       endTime: data.endTime,
       participants: data.participants,
       company: data.company,
-      organizer: currentUser?.fullName || currentUser?.name || 'User'
+      organizer: currentUser?.fullName || currentUser?.name || 'User',
+      // BookingForm ထဲက generate လုပ်ထားသော meetingLink ပါလာပါက ထည့်သွင်းပေးမည်
+      meetingLink: submittedData?.meetingLink || data.meetingLink || "" 
     };
 
     const updatedMeetings = [...bookedMeetings, newBooking];

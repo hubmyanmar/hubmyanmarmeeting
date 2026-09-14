@@ -159,7 +159,6 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
         stoppedAt: null,
         room: item.room || item.originalData?.room || 'Unknown Room',
         date: item.date || item.originalData?.date || nowIso.split('T')[0],
-        
         originalData: item.originalData || item
       }
     };
@@ -168,6 +167,12 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
     localStorage.setItem('meetingSessions', JSON.stringify(updatedSessions));
 
     const meetingWithId = { ...item.originalData, id: meetingId };
+
+    // --- Zoom (သို့) Online Meeting Link ရှိပါက Tab အသစ်ဖြင့် အလိုအလျောက် ဖွင့်ပေးရန် ---
+    if (meetingWithId?.meetingLink) {
+      window.open(meetingWithId.meetingLink, '_blank');
+    }
+
     navigate('/dashboard/meeting-records', { state: { meeting: meetingWithId, mode: 'join' } });
   };
 

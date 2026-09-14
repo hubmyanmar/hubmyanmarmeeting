@@ -128,21 +128,6 @@ export default function MeetingCard({ item }) {
         </p>
       </div>
 
-      {/* Buttons */}
-      <div className="grid grid-cols-2 gap-3">
-        <button type="button" className="flex items-center justify-center gap-2 py-2 px-4 bg-[#5538ee] hover:bg-[#482ee0] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors">
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-          </svg>
-          <span>Join</span>
-        </button>
-        <button type="button" className="flex items-center justify-center gap-2 py-2 px-4 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200/80 rounded-xl text-xs font-semibold transition-colors">
-          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span>Details</span>
-        </button>
-      </div>
     </div>
   );
 }
