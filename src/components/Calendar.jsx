@@ -140,6 +140,7 @@ export default function Calendar({ bookedMeetings = [] }) {
   const processedMeetings = calculateOverlaps(bookedMeetings);
 
   const now = new Date();
+  const formattedDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
   const currentTimeTop = ((currentHour - START_HOUR) * HOUR_HEIGHT) + ((currentMinute / 60) * HOUR_HEIGHT);
@@ -158,7 +159,7 @@ export default function Calendar({ bookedMeetings = [] }) {
         {/* Header Bar */}
         <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-slate-900">Monday, Sep 14</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{formattedDate}</h1>
             <span className="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
               Today
             </span>

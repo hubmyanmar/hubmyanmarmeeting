@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,11 +13,9 @@ export default function AuthCard() {
     password: '',
     rememberMe: false,
   });
-
   const [registeredUsers, setRegisteredUsers] = useState([
     { email: 'test@example.com', password: 'password123', fullName: 'Test User' }
   ]);
-
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -38,7 +36,6 @@ export default function AuthCard() {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 800));
-
       if (isLogin) {
         const userFound = registeredUsers.find(
           (u) => u.email === formData.email && u.password === formData.password
@@ -62,7 +59,7 @@ export default function AuthCard() {
         setIsLogin(true);
       }
     } catch (err) {
-      setError(err.message);
+       setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -121,7 +118,9 @@ export default function AuthCard() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Full Name
+                </label>
                 <input
                   type="text"
                   name="fullName"
@@ -136,7 +135,9 @@ export default function AuthCard() {
 
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Position / Role</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Position / Role
+                </label>
                 <select
                   name="position"
                   required
@@ -144,7 +145,7 @@ export default function AuthCard() {
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
                 >
-                  <option value="" disabled>Select your position</option>
+                   <option value="" disabled>Select your position</option>
                   <option value="Software Engineer">Software Engineer</option>
                   <option value="Frontend Developer">Frontend Developer</option>
                   <option value="Backend Developer">Backend Developer</option>
@@ -153,7 +154,9 @@ export default function AuthCard() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Email Address
+              </label>
               <input
                 type="email"
                 name="email"
@@ -166,13 +169,15 @@ export default function AuthCard() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Password
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   required
-                  minLength={8}
+                  minLength={6}
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"

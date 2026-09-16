@@ -74,8 +74,6 @@ export default function MetricCards({ filter }) {
         const rawSessions = localStorage.getItem('meetingSessions');
         const sessions = rawSessions ? JSON.parse(rawSessions) : {};
         const sessionsArray = Array.isArray(sessions) ? sessions : Object.values(sessions);
-
-        // ဤနေရာတွင် 'bookedMeetings' ကို ထည့်သွင်းပေးထားပါသည်
         const actionKeys = ['actionItems', 'meetingActions', 'actions', 'tasks', 'meetingSessions', 'bookedMeetings'];
         let rawActionsArray = [];
         
