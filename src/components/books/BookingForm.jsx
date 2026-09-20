@@ -1,34 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-
-const AVAILABLE_USERS = [
-  { name: "Aung Aung", email: "aungaung@example.com" },
-  { name: "Kyaw Kyaw", email: "kyawkyaw@example.com" },
-  { name: "Su Su", email: "susu@example.com" },
-  { name: "Mya Mya", email: "myamya@example.com" },
-  { name: "Zayar Min", email: "zayarmin@example.com" },
-  { name: "Thiri Tun", email: "thiritun@example.com" },
-  { name: "Wai Yan", email: "waiyan@example.com" },
-  { name: "Nilar Win", email: "nilarwin@example.com" },
-  { name: "Kaung Myat", email: "kaungmyat@example.com" },
-  { name: "Htet Htet", email: "htethtet@example.com" }
-];
-
-const companies = [
-  "Hub Myanmar", 
-  "On Doctor",
-  "Pan Set Lann", 
-  "First Step Global",
-  "Kyal Sin Akhaya", 
-  "Biota Myanamr", 
-  "Twa Win Akariz",
-  "Pan Asia Partners", 
-  "Pacific Rise Group", 
-  "Horizon Marinen Energy", 
-  "Unity Business Partners", 
-  "Apex Care", 
-  "Premium Capital Group", 
-  "Eastern Valley Partners"
-];
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -45,20 +15,6 @@ const getInitials = (name) => {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return name.substring(0, 2).toUpperCase();
-};
-
-const INITIAL_FORM_STATE = {
-  title: "",
-  purpose: "",
-  company: "",
-  date: getTodayDate(), 
-  startTime: "09:00 AM",
-  endTime: "10:00 AM",
-  room: "",
-  meetingType: "Face to Face",
-  platform: "",
-  participants: [],
-  inviteCliq: false
 };
 
 const formatTo12Hour = (time24) => { 
@@ -103,13 +59,17 @@ const parseTime = (timeStr) => {
   return hours * 60 + minutes;
 };
 
-export default function BookingForm({ data, setData, onBook, onClear, bookedMeetings = [] }) {
-  const rooms = ["MD Room", "Bagan Room", "Konbaung Room", "BOD Home"];
-  const sampleBookings = bookedMeetings.length > 0 ? bookedMeetings : [
-    { room: "Bagan Room", startTime: "09:00 AM", endTime: "10:30 AM" },
-    { room: "Bagan Room", startTime: "01:00 PM", endTime: "02:30 PM" },
-    { room: "Meeting Room D", startTime: "10:00 AM", endTime: "11:30 AM" },
-  ];
+export default function BookingForm({ data, setData, onBook, onClear, isLoading, bookedMeetings = [] }) {
+  const [rooms, setRooms] = useState([]);
+  const [isRoomsLoading, setIsRoomsLoading] = useState(true);
+  const [roomError, setRoomError] = useState(null);
+
+  const [companies, setCompanies] = useState([]);
+  const [isCompaniesLoading, setIsCompaniesLoading] = useState(true);
+  const [companyError, setCompanyError] = useState(null);
+
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [isUsersLoading, setIsUsersLoading] = useState(true);
 
   const [inviteeInput, setInviteeInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -123,28 +83,83 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
 
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000';
+  
+  const fetchRooms = useCallback(async (abortSignal) => {
+    setIsRoomsLoading(true);
+    setRoomError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/meeting-rooms/`, { signal: abortSignal });
+      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
+      const roomData = await res.json();
+      setRooms(Array.isArray(roomData) ? roomData : []);
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      setRoomError("Meeting Room များကို ယူ၍မရပါ။ Server ချိတ်ဆက်မှုကို စစ်ဆေးပါ။");
+    } finally {
+      setIsRoomsLoading(false);
+    }
+  }, [API_BASE_URL]);
+
+  const fetchCompanies = useCallback(async (abortSignal) => {
+    setIsCompaniesLoading(true);
+    setCompanyError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/companies/`, { signal: abortSignal });
+      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
+      const companyData = await res.json();
+      setCompanies(Array.isArray(companyData) ? companyData : []);
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      setCompanyError("Company စာရင်းကို ယူ၍မရပါ။");
+    } finally {
+      setIsCompaniesLoading(false);
+    }
+  }, [API_BASE_URL]);
+
+  const fetchUsers = useCallback(async (abortSignal) => {
+    setIsUsersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/users`, { signal: abortSignal });
+      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
+      const userData = await res.json();
+      setAvailableUsers(Array.isArray(userData) ? userData : []);
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+    } finally {
+      setIsUsersLoading(false);
+    }
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchRooms(controller.signal);
+    fetchCompanies(controller.signal);
+    fetchUsers(controller.signal);
+    return () => controller.abort();
+  }, [fetchRooms, fetchCompanies, fetchUsers]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowSuggestions(false);
-      }
-      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target)) {
-        setShowCompanySuggestions(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setShowSuggestions(false);
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target)) setShowCompanySuggestions(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isRoomBlocked = (roomName) => {
-    const roomBookings = sampleBookings.filter(b => {
-      const isSameRoom = b.room === roomName;
-      const isSameDate = !data?.date || !b.date || b.date === data?.date;
+  const isRoomBlocked = (roomIdentifier, roomName) => {
+    const validBookings = bookedMeetings || [];
+    const roomBookings = validBookings.filter(b => {
+      const isSameRoom = b.room === roomName || b.room_id === Number(roomIdentifier);
+      const bookingDate = b.meeting_date || b.date;
+      const isSameDate = !data?.date || !bookingDate || bookingDate === data?.date;
       return isSameRoom && isSameDate;
     });
+
     return roomBookings.some(b => {
-      const bStart = parseTime(b.startTime);
-      const bEnd = parseTime(b.endTime);
+      const bStart = parseTime(b.start_time || b.startTime);
+      const bEnd = parseTime(b.end_time || b.endTime);
       return userStart < bEnd && userEnd > bStart;
     });
   };
@@ -154,7 +169,7 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
     setData(prev => ({ 
       ...prev, 
       [name]: type === 'checkbox' ? checked : value,
-      ...(name === 'meetingType' && value === 'Face to Face' ? { platform: "" } : {})
+      ...(name === 'meetingType' && (value === 'face to face' || value === 'Face to Face') ? { platform: "" } : {})
     }));
   };
 
@@ -167,21 +182,26 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
   const handleSelectParticipant = (user) => {
     const isAlreadyAdded = data?.participants?.some(p => p.email === user.email);
     if (!isAlreadyAdded) {
+      const participantPayload = {
+        zoho_user_id: String(user.zuid || user.zoho_user_id || user.id || ""),
+        name: user.name || "",
+        email: user.email || ""
+      };
       setData(prev => ({
         ...prev,
-        participants: [...(prev?.participants || []), user]
+        participants: [...(prev?.participants || []), participantPayload]
       }));
     }
     setInviteeInput("");
     setShowSuggestions(false);
   };
-
+  
   const handleAddParticipantEnter = (e) => {
     if (e.key === 'Enter' && inviteeInput.trim()) {
       e.preventDefault();
-      const matchedUser = AVAILABLE_USERS.find(
-        u => u.name.toLowerCase() === inviteeInput.trim().toLowerCase() || 
-             u.email.toLowerCase() === inviteeInput.trim().toLowerCase()
+      const matchedUser = availableUsers.find(
+        u => u.name?.toLowerCase() === inviteeInput.trim().toLowerCase() || 
+             u.email?.toLowerCase() === inviteeInput.trim().toLowerCase()
       );
       if (matchedUser) {
         handleSelectParticipant(matchedUser);
@@ -198,61 +218,24 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
     }));
   };
 
-  const handleClear = () => {
-    setData(INITIAL_FORM_STATE);
-    setInviteeInput("");
-    setCompanyInput("");
-    setShowOverflow(false);
-    setShowCompanySuggestions(false);
-    if (onClear && typeof onClear === 'function') onClear();
-  };
-
- const handleBookClick = () => {
-    if (data?.date < getTodayDate()) {
-      alert("Past dates cannot be selected for a meeting.");
-      return;
-    }
-
-    let finalMeetingData = { ...data };
-    
-    // Online ဖြစ်ပါက Platform အလိုက် Meeting Link အလိုအလျောက် Generate လုပ်ပေးခြင်း
-    if (data?.meetingType === "Online" && data?.platform) {
-      let generatedLink = "";
-      
-      if (data.platform === "Zoom") {
-        // Zoom လက်ခံနိုင်သော ဂဏန်း ၁၀ လုံးပါသော Random Meeting ID ကို ဖန်တီးပေးခြင်း
-        const randomDigits = Math.floor(1000000000 + Math.random() * 9000000000);
-        generatedLink = `https://zoom.us/j/${randomDigits}`;
-      } else if (data.platform === "Zoho Cliq") {
-        const randomId = Math.random().toString(36).substring(2, 9);
-        generatedLink = `https://cliq.zoho.com/meeting/${randomId}`;
-      } else {
-        const randomId = Math.random().toString(36).substring(2, 9);
-        generatedLink = `https://meet.example.com/${randomId}`;
-      }
-
-      finalMeetingData.meetingLink = generatedLink;
-    }
-
-    if (onBook && typeof onBook === 'function') {
-      onBook(finalMeetingData); 
-    }
-  };
-  
   const displayCount = 5;
   const visibleParticipants = data?.participants?.slice(0, displayCount) || [];
   const remainingCount = (data?.participants?.length || 0) - displayCount;
 
-  const availableSuggestions = AVAILABLE_USERS.filter(user => {
-    const isMatch = user.name.toLowerCase().includes(inviteeInput.toLowerCase()) || 
-                    user.email.toLowerCase().includes(inviteeInput.toLowerCase());
-    const isAlreadyAdded = (data?.participants || []).some(p => p.email === user.email);
+  const availableSuggestions = availableUsers.filter(user => {
+    const userName = user.name || "";
+    const userEmail = user.email || "";
+    const isMatch = userName.toLowerCase().includes(inviteeInput.toLowerCase()) || 
+                    userEmail.toLowerCase().includes(inviteeInput.toLowerCase());
+    const isAlreadyAdded = (data?.participants || []).some(p => p.email === userEmail);
     return isMatch && !isAlreadyAdded;
   });
 
   const availableCompanySuggestions = companies.filter(companyName =>
     companyName.toLowerCase().includes(companyInput.toLowerCase())
   );
+
+  const isOnlineMeeting = data?.meetingType?.toLowerCase() === "online";
 
   return (
     <div className="flex-1 flex flex-col gap-5 bg-white p-2">
@@ -280,7 +263,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
 
       {/* Date & Time Row */}
       <div className="flex flex-col md:flex-row gap-4">
-        {/* Date */}
         <div className="flex-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
           <input 
@@ -292,17 +274,16 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           />
         </div>
 
-        {/* Time */}
         <div className="flex-[2]">
           <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
           <div className="flex items-center gap-2">
             <input 
-              type="time" name="startTime" value={formatTo24Hour(data?.startTime) || "10:00"} onChange={handleTimeChange} 
+              type="time" name="startTime" value={formatTo24Hour(data?.startTime) || "09:00"} onChange={handleTimeChange} 
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 font-medium cursor-pointer"
             />
             <span className="text-gray-500 text-sm">to</span>
             <input 
-              type="time" name="endTime" value={formatTo24Hour(data?.endTime) || "11:30"} onChange={handleTimeChange} 
+              type="time" name="endTime" value={formatTo24Hour(data?.endTime) || "10:00"} onChange={handleTimeChange} 
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 font-medium cursor-pointer"
             />
           </div>
@@ -317,24 +298,22 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
           </label>
           <select 
             name="meetingType" 
-            value={data?.meetingType || "Face to Face"} 
+            value={data?.meetingType ? data.meetingType.toLowerCase() : "face to face"} 
             onChange={handleChange} 
             className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
           >
-            <option value="Face to Face">Face to Face</option>
-            <option value="Online">Online</option>
+            <option value="face to face">Face to Face</option>
+            <option value="online">Online</option>
           </select>
         </div>
 
-        {data?.meetingType === "Online" && (
+        {isOnlineMeeting && (
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Platform <span className="text-red-500">*</span>
             </label>
             <select 
-              name="platform" 
-              value={data?.platform || ""} 
-              onChange={handleChange} 
+              name="platform" value={data?.platform || ""} onChange={handleChange} 
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
             >
               <option value="" disabled>Select Platform</option>
@@ -346,25 +325,36 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         )}
       </div>
 
-      {/* Meeting Room */}
+      {/* Meeting Room Dropdown */}
       <div>
-        <div className="flex justify-between mb-1">
+        <div className="flex justify-between items-center mb-1">
           <label className="block text-sm font-medium text-gray-700">
-            Meeting Room {data?.meetingType === "Online" ? (
+            Meeting Room {isOnlineMeeting ? (
               <span className="text-gray-400 font-normal">(Optional for Online)</span>
             ) : (
               <span className="text-red-500">*</span>
             )}
           </label>
-          <button type="button" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Check Availability</button>
         </div>
-        <select name="room" value={data?.room || ""} onChange={handleChange} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer">
-          <option value="">Select a Room</option>
-          {rooms.map((roomName) => {
-            const blocked = isRoomBlocked(roomName);
+
+        <select 
+          name="room" value={data?.room || ""} onChange={handleChange} 
+          disabled={isRoomsLoading || !!roomError}
+          className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 bg-white cursor-pointer disabled:bg-gray-100 ${
+            roomError ? 'border-red-300 focus:ring-red-500 text-red-600' : 'border-gray-200 focus:ring-indigo-500'
+          }`}
+        >
+          {isRoomsLoading && <option value="">Loading rooms...</option>}
+          {roomError && <option value="" disabled>{roomError}</option>}
+          {!isRoomsLoading && !roomError && rooms.length === 0 && <option value="" disabled>No rooms available</option>}
+          {!isRoomsLoading && !roomError && rooms.length > 0 && <option value="">Select a Room</option>}
+
+          {!isRoomsLoading && !roomError && rooms.map((room) => {
+            const roomName = room.name || room.room_name || `Room ${room.id}`;
+            const blocked = isRoomBlocked(room.id, roomName);
             return (
-              <option key={roomName} value={roomName} disabled={blocked}>
-                {roomName} {blocked ? "(Unavailable)" : ""}
+              <option key={room.id} value={room.id} disabled={blocked}>
+                {roomName} {blocked ? "(Unavailable at this time)" : ""}
               </option>
             );
           })}
@@ -376,18 +366,14 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Company Name <span className="text-red-500">*</span>
         </label>
-
         {data?.company && (
           <div className="flex items-center mb-2">
             <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 shadow-sm">
               {data.company}
               <button 
-                type="button"
-                onClick={() => setData(prev => ({ ...prev, company: "" }))}
-                className="w-4 h-4 rounded-full hover:bg-indigo-200 text-indigo-500 hover:text-indigo-800 flex items-center justify-center text-xs transition-colors"
-              >
-                &times;
-              </button>
+                type="button" onClick={() => setData(prev => ({ ...prev, company: "" }))}
+                className="w-4 h-4 rounded-full hover:bg-indigo-200 text-indigo-500 flex items-center justify-center text-xs"
+              >&times;</button>
             </span>
           </div>
         )}
@@ -395,8 +381,9 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         <div className="relative" ref={companyDropdownRef}>
           <input 
             type="text" 
-            placeholder={data?.company ? "Change company..." : "Search or select company..."}
+            placeholder={isCompaniesLoading ? "Loading companies..." : "Search or select company..."}
             value={companyInput}
+            disabled={isCompaniesLoading || !!companyError}
             onChange={(e) => {
               setCompanyInput(e.target.value);
               setShowCompanySuggestions(true);
@@ -404,7 +391,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
             onFocus={() => setShowCompanySuggestions(true)}
             className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
           />
-          
           {showCompanySuggestions && availableCompanySuggestions.length > 0 && (
             <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
               {availableCompanySuggestions.map((companyName, idx) => (
@@ -415,7 +401,7 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
                     setCompanyInput("");
                     setShowCompanySuggestions(false);
                   }}
-                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
+                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer"
                 >
                   {companyName}
                 </li>
@@ -439,9 +425,7 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
                 <button 
                   onClick={() => handleRemoveParticipant(i)}
                   className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center z-10"
-                >
-                  &times;
-                </button>
+                >&times;</button>
               </div>
             ))}
             
@@ -453,36 +437,6 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
                 >
                   +{remainingCount}
                 </div>
-
-                {showOverflow && (
-                  <div className="absolute top-10 left-0 w-52 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-30">
-                    <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100 mb-1">
-                      More Participants
-                    </div>
-                    <ul className="max-h-40 overflow-y-auto">
-                      {data.participants.slice(displayCount).map((p, idx) => {
-                        const actualIndex = displayCount + idx; 
-                        return (
-                          <li key={actualIndex} className="flex justify-between items-center px-3 py-2 hover:bg-gray-50 group">
-                            <div className="overflow-hidden flex-1">
-                              <div className="text-sm font-medium text-gray-700 truncate">{p.name}</div>
-                              <div className="text-xs text-gray-400 truncate">{p.email}</div>
-                            </div>
-                            <button 
-                              onClick={() => {
-                                handleRemoveParticipant(actualIndex);
-                                if (remainingCount === 1) setShowOverflow(false);
-                              }}
-                              className="w-5 h-5 ml-2 flex items-center justify-center rounded-full text-red-500 hover:text-white hover:bg-red-500 opacity-0 group-hover:opacity-100 shrink-0 transition-colors"
-                            >
-                              &times;
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -491,12 +445,9 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
         <div className="relative" ref={dropdownRef}>
           <input 
             type="text" 
-            placeholder="Add Invitees (Type or press Enter)..."
-            value={inviteeInput}
-            onChange={(e) => {
-              setInviteeInput(e.target.value);
-              setShowSuggestions(true);
-            }}
+            placeholder={isUsersLoading ? "Loading users..." : "Add Invitees (Type or press Enter)..."}
+            value={inviteeInput} disabled={isUsersLoading}
+            onChange={(e) => { setInviteeInput(e.target.value); setShowSuggestions(true); }}
             onFocus={() => setShowSuggestions(true)}
             onKeyDown={handleAddParticipantEnter}
             className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
@@ -508,7 +459,7 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
                 <li 
                   key={idx} 
                   onClick={() => handleSelectParticipant(user)}
-                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
+                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer"
                 >
                   <div className="font-medium">{user.name}</div>
                   <div className="text-xs text-gray-500">{user.email}</div>
@@ -531,18 +482,16 @@ export default function BookingForm({ data, setData, onBook, onClear, bookedMeet
       {/* Buttons */}
       <div className="flex gap-4 mt-2">
         <button 
-          type="button"
-          onClick={handleClear} 
-          className="flex-1 py-2.5 border border-indigo-200 text-indigo-600 font-medium rounded-lg hover:bg-indigo-50 transition"
+          type="button" onClick={onClear} disabled={isLoading}
+          className="flex-1 py-2.5 border border-indigo-200 text-indigo-600 font-medium rounded-lg hover:bg-indigo-50 transition disabled:opacity-50"
         >
           Clear
         </button>
         <button 
-          type="button"
-          onClick={handleBookClick} 
-          className="flex-1 py-2.5 bg-[#4F39F6] text-white font-medium rounded-lg hover:bg-indigo-700 transition shadow-sm"
+          type="button" onClick={onBook} disabled={isLoading}
+          className="flex-1 py-2.5 bg-[#4F39F6] text-white font-medium rounded-lg hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
         >
-          Book Meeting
+          {isLoading ? 'Booking...' : 'Book Meeting'}
         </button>
       </div>
     </div>

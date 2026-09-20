@@ -51,7 +51,7 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
   const baseRooms = [
     { id: 'md', name: 'MD Room', capacity: '6-8 Seats', floor: '2nd Floor', image: baganImg },
     { id: 'bagan', name: 'Bagan Room', capacity: '10-12 Seats', floor: '1st Floor', image: yangonImg },
-    { id: 'konbaung', name: 'Konbaung Room', capacity: '4-6 Seats', floor: '2nd Floor', image: inleImg },
+    { id: 'konebaung', name: 'Konebaung Room', capacity: '4-6 Seats', floor: '2nd Floor', image: inleImg },
     { id: 'bod', name: 'BOD Home', capacity: '15-20 Seats', floor: '3rd Floor', image: mandalayImg }
   ];
 

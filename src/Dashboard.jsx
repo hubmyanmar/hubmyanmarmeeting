@@ -7,14 +7,15 @@ export default function Dashboard() {
   const location = useLocation();
   const [user] = useState(() => {
     if (location.state?.user) {
-      localStorage.setItem('authUser', JSON.stringify(location.state.user));
+      localStorage.setItem('currentUser', JSON.stringify(location.state.user));
       return location.state.user;
     }
-    const savedUser = localStorage.getItem('authUser');
+    const savedUser = localStorage.getItem('currentUser');
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
   const [profileImage, setProfileImage] = useState(() => {
+    if (user?.image) return user.image;
     return localStorage.getItem('savedProfileImage') || null;
   });
 

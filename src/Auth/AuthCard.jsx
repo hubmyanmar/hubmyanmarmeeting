@@ -1,32 +1,75 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function AuthCard() {
+export default function AuthCard({ setCurrentUser }) {
   const navigate = useNavigate();
 
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
-    fullName: '',
+    name: '',
     position: '',
     email: '',
     password: '',
-    rememberMe: false,
   });
-  const [registeredUsers, setRegisteredUsers] = useState([
-    { email: 'test@example.com', password: 'password123', fullName: 'Test User' }
-  ]);
+  
+  // Position States
+  const [positions, setPositions] = useState([]);
+  const [filteredPositions, setFilteredPositions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/auth/positions');
+        if (response.ok) {
+          const data = await response.json();
+          setPositions(data.positions || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch positions:', err);
+      }
+    };
+    fetchPositions();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError('');
+
+    if (name === 'position') {
+      if (value.trim() === '') {
+        setFilteredPositions([]);
+        setShowDropdown(false);
+      } else {
+        const filtered = positions.filter((pos) =>
+          pos.toLowerCase().includes(value.toLowerCase())
+        );
+        setFilteredPositions(filtered);
+        setShowDropdown(true);
+      }
+    }
+  };
+
+  const handlePositionSelect = (selectedPosition) => {
+    setFormData((prev) => ({ ...prev, position: selectedPosition }));
+    setShowDropdown(false);
   };
 
   const handleSubmit = async (e) => {
@@ -35,39 +78,63 @@ export default function AuthCard() {
     setError('');
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
       if (isLogin) {
-        const userFound = registeredUsers.find(
-          (u) => u.email === formData.email && u.password === formData.password
-        );
+        
+        const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
 
-        if (!userFound) {
-          throw new Error('Email သို့မဟုတ် Password မှားယွင်းနေပါသည်။');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Email သို့မဟုတ် Password မှားယွင်းနေပါသည်။');
         }
 
-        // Login အောင်မြင်ပါက Dashboard သို့ သွားမည်
-        navigate('/dashboard', { state: { user: userFound } });
+        localStorage.setItem('access_token', data.access_token);
+
+        const userData = data.user || { 
+          email: formData.email, 
+          name: formData.email.split('@')[0],
+          position: ''
+        };
+
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        setCurrentUser(userData);
+
+        navigate('/dashboard');
 
       } else {
-        const isEmailTaken = registeredUsers.some((u) => u.email === formData.email);
+        const response = await fetch('http://localhost:8000/api/v1/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.name,
+            position: formData.position,
+            email: formData.email,
+            password: formData.password,
+          }),
+        });
 
-        if (isEmailTaken) {
-          throw new Error('ဤ Email ဖြင့် အကောင့်ဖွင့်ထားပြီးဖြစ်ပါသည်။');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'အကောင့်ဖွင့်ခြင်း မအောင်မြင်ပါ။');
         }
-
-        setRegisteredUsers((prev) => [...prev, { ...formData }]);
+        
         setIsLogin(true);
+        setError('Account created successfully! Please sign in.');
       }
+
     } catch (err) {
-       setError(err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTabChange = (loginStatus) => {
-    setIsLogin(loginStatus);
-    setError('');
   };
 
   return (
@@ -77,22 +144,18 @@ export default function AuthCard() {
         <div className="flex border-b border-slate-200">
           <button
             type="button"
-            onClick={() => handleTabChange(true)}
+            onClick={() => { setIsLogin(true); setError(''); }}
             className={`w-1/2 py-4 text-center font-semibold transition-all ${
-              isLogin
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-slate-500 hover:text-indigo-600'
+              isLogin ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-indigo-600'
             }`}
           >
             Login
           </button>
           <button
             type="button"
-            onClick={() => handleTabChange(false)}
+            onClick={() => { setIsLogin(false); setError(''); }}
             className={`w-1/2 py-4 text-center font-semibold transition-all ${
-              !isLogin
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-slate-500 hover:text-indigo-600'
+              !isLogin ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-indigo-600'
             }`}
           >
             Register
@@ -104,13 +167,15 @@ export default function AuthCard() {
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
           <p className="text-sm text-slate-500 text-center mb-6">
-            {isLogin
-              ? 'Please enter your details to sign in.'
-              : 'Fill in the form to get started.'}
+            {isLogin ? 'Please enter your details to sign in.' : 'Fill in the form to get started.'}
           </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200">
+            <div className={`mb-4 p-3 text-sm font-medium rounded-lg border ${
+              error.includes('successfully') 
+                ? 'bg-green-50 text-green-600 border-green-200' 
+                : 'bg-red-50 text-red-600 border-red-200'
+            }`}>
               {error}
             </div>
           )}
@@ -123,9 +188,9 @@ export default function AuthCard() {
                 </label>
                 <input
                   type="text"
-                  name="fullName"
+                  name="name"
                   required
-                  value={formData.fullName}
+                  value={formData.name}
                   onChange={handleChange}
                   placeholder="John Doe"
                   className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
@@ -134,22 +199,43 @@ export default function AuthCard() {
             )}
 
             {!isLogin && (
-              <div>
+              <div className="relative" ref={dropdownRef}>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Position / Role
                 </label>
-                <select
+                <input
+                  type="text"
                   name="position"
                   required
+                  autoComplete="off"
                   value={formData.position}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
-                >
-                   <option value="" disabled>Select your position</option>
-                  <option value="Software Engineer">Software Engineer</option>
-                  <option value="Frontend Developer">Frontend Developer</option>
-                  <option value="Backend Developer">Backend Developer</option>
-                </select>
+                  onFocus={() => {
+                     if(formData.position) setShowDropdown(true);
+                  }}
+                  placeholder="Type to search your position..."
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                />
+                
+                {/* Custom Autocomplete Dropdown Menu */}
+                {showDropdown && filteredPositions.length > 0 && (
+                  <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredPositions.map((pos, index) => (
+                      <li
+                        key={index}
+                        onClick={() => handlePositionSelect(pos)}
+                        className="px-4 py-2.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
+                      >
+                        {pos}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {showDropdown && filteredPositions.length === 0 && formData.position && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 text-sm text-slate-500 italic">
+                    Press Register to save as custom position.
+                  </div>
+                )}
               </div>
             )}
 

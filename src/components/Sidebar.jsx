@@ -61,9 +61,9 @@ export default function Sidebar({ user, profileImage }) {
       <div className="p-4 border-t border-gray-200 flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <img 
-            src={profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} 
-            alt="User" 
-            className="w-10 h-10 rounded-full border border-gray-200 bg-gray-100 object-cover" 
+            src={profileImage || `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" fill="%236366f1"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-size="16" font-family="sans-serif">${displayName.charAt(0).toUpperCase()}</text></svg>`} 
+            alt="Profile"
+            className="w-10 h-10 rounded-full object-cover border border-gray-300"
           />
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-bold text-gray-900 truncate">{displayName}</h4>

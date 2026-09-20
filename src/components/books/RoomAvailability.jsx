@@ -42,25 +42,32 @@ const getLocalDateString = (dateObj) => {
   return `${y}-${m}-${d}`;
 };
 
-export default function RoomAvailability({ data, setData, bookedMeetings = [] }) {
+const getBookingInfo = (b) => {
+  const rawDate = b.meeting_date || b.date || "";
+  const cleanDate = rawDate ? String(rawDate).split('T')[0] : "";
+  return {
+    roomId: b.room_id !== undefined && b.room_id !== null ? String(b.room_id) : "",
+    roomName: String(b.room_name || b.room || "").trim(),
+    date: cleanDate,
+    startTime: b.start_time || b.startTime || "",
+    endTime: b.end_time || b.endTime || ""
+  };
+};
+
+export default function RoomAvailability({ data, setData, bookedMeetings = [], rooms: roomsProp = [] }) {
   const TOTAL_WORK_MINUTES = (END_HOUR - START_HOUR) * 60; 
   const startOfDayMinutes = START_HOUR * 60; 
   const timeScaleLabels = generateTimeScale(START_HOUR, END_HOUR, STEP_HOURS);
 
-  const rooms = [
-    { name: "MD Room", capacity: 12 },
-    { name: "Bagan Room", capacity: 8 },
-    { name: "Konbaung Room", capacity: 20 },
-    { name: "BOD Home", capacity: 6 }
-  ];
-
+  const rooms = Array.isArray(roomsProp) ? roomsProp : [];
   const todayStr = getLocalDateString(new Date());
+  const currentViewDate = data?.date || todayStr;
 
-  const sampleBookings = bookedMeetings.length > 0 ? bookedMeetings : [
-    { room: "Meeting Room B", date: todayStr, startTime: "09:00 AM", endTime: "10:30 AM" },
-    { room: "Meeting Room B", date: todayStr, startTime: "01:00 PM", endTime: "02:30 PM" },
-    { room: "BOD Home", date: todayStr, startTime: "10:00 AM", endTime: "11:30 AM" },
-  ];
+  const activeBookings = bookedMeetings;
+  // console.log("--- DEBUG ROOM AVAILABILITY ---");
+  // console.log("Current View Date:", currentViewDate);
+  // console.log("Rooms from DB:", rooms);
+  // console.log("Booked Meetings from DB:", activeBookings);
 
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
@@ -69,41 +76,21 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [] })
   const userSelectWidth = Math.max(0, ((userEnd - userStart) / TOTAL_WORK_MINUTES) * 100);
 
   const handleDateChange = (daysToAdd) => {
-    const current = data?.date ? new Date(data.date) : new Date();
+    const [year, month, day] = currentViewDate.split('-').map(Number);
+    const current = new Date(year, month - 1, day);
     current.setDate(current.getDate() + daysToAdd);
     setData(prev => ({ ...prev, date: getLocalDateString(current) }));
   };
 
   const getDisplayDateLabel = () => {
-    const currentDateStr = data?.date || todayStr;
-    const [year, month, day] = currentDateStr.split('-');
+    const [year, month, day] = currentViewDate.split('-').map(Number);
     const dObj = new Date(year, month - 1, day);
-    
     return dObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  useEffect(() => {
-    if (data?.room) {
-      const selectedRoomBookings = sampleBookings.filter(b => {
-        const isSameRoom = b.room === data.room;
-        const isSameDate = !data?.date || !b.date || b.date === data?.date;
-        return isSameRoom && isSameDate;
-      });
-
-      const isConflict = selectedRoomBookings.some(b => {
-        const bStart = parseTime(b.startTime);
-        const bEnd = parseTime(b.endTime);
-        return userStart < bEnd && userEnd > bStart;
-      });
-
-      if (isConflict) {
-        setData(prev => ({ ...prev, room: "" }));
-      }
-    }
-  }, [data?.startTime, data?.endTime, data?.date, data?.room]);
-
-  const handleSelectRoom = (roomName) => {
-    setData(prev => ({ ...prev, room: roomName }));
+  const handleSelectRoom = (room) => {
+    const roomIdOrName = room.id ? String(room.id) : (room.name || room.room_name);
+    setData(prev => ({ ...prev, room: roomIdOrName }));
   };
 
   return (
@@ -113,8 +100,9 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [] })
       {/* Date Navigation Control */}
       <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg p-2.5 mt-3 mb-5 shadow-sm">
         <button 
+          type="button"
           onClick={() => handleDateChange(-1)}
-          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors"
+          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
@@ -126,8 +114,9 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [] })
         </span>
 
         <button 
+          type="button"
           onClick={() => handleDateChange(1)}
-          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors"
+          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
@@ -146,75 +135,95 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [] })
       </div>
 
       <div className="space-y-4">
-        {rooms.map((room, idx) => {
-          const currentViewDate = data?.date || todayStr;
-          const roomBookings = sampleBookings.filter(b => {
-            return b.room === room.name && (!b.date || b.date === currentViewDate);
-          });
+        {rooms.length === 0 ? (
+          <div className="text-center py-6 text-xs text-gray-400">
+            Database မှ အခန်းစာရင်းများ ရယူနေပါသည်...
+          </div>
+        ) : (
+          rooms.map((room, idx) => {
+            const roomName = String(room.name || room.room_name || `Room ${room.id}`).trim();
+            const roomId = room.id ? String(room.id) : "";
+            const roomCapacity = room.capacity || room.room_capacity;
 
-          const isConflict = roomBookings.some(b => {
-            const bStart = parseTime(b.startTime);
-            const bEnd = parseTime(b.endTime);
-            return userStart < bEnd && userEnd > bStart;
-          });
+            const roomBookings = activeBookings.filter(b => {
+              const info = getBookingInfo(b);
+              const isIdMatch = roomId && (info.roomId === roomId);
+              const isNameMatch = roomName && (info.roomName.toLowerCase() === roomName.toLowerCase());
+              
+              const isMatchRoom = isIdMatch || isNameMatch;
+              const isMatchDate = !info.date || info.date === currentViewDate;
+              
+              return isMatchRoom && isMatchDate;
+            });
 
-          const isSelected = data?.room === room.name;
+            const isConflict = roomBookings.some(b => {
+              const info = getBookingInfo(b);
+              const bStart = parseTime(info.startTime);
+              const bEnd = parseTime(info.endTime);
+              return userStart < bEnd && userEnd > bStart;
+            });
 
-          let cardStyle = "p-3.5 rounded-xl border-2 transition-all ";
-          if (isConflict) {
-            cardStyle += "bg-red-50/70 border-red-200 opacity-75 cursor-not-allowed pointer-events-none select-none";
-          } else if (isSelected) {
-            cardStyle += "bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm cursor-pointer";
-          } else {
-            cardStyle += "bg-emerald-50/30 border-emerald-200 hover:border-emerald-400 cursor-pointer";
-          }
+            const isSelected = data?.room === roomId || data?.room === roomName;
 
-          return (
-            <div key={idx} onClick={() => !isConflict && handleSelectRoom(room.name)} className={cardStyle}>
-              <div className="flex justify-between items-center mb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className={`font-semibold text-sm ${isConflict ? "text-red-700" : "text-gray-800"}`}>
-                    {room.name}
-                  </span>
-                  <span className="text-[11px] text-gray-400">({room.capacity} seats)</span>
+            let cardStyle = "p-3.5 rounded-xl border-2 transition-all ";
+            if (isConflict) {
+              cardStyle += "bg-red-50/70 border-red-200 opacity-90 cursor-not-allowed pointer-events-none select-none";
+            } else if (isSelected) {
+              cardStyle += "bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm cursor-pointer";
+            } else {
+              cardStyle += "bg-emerald-50/30 border-emerald-200 hover:border-emerald-400 cursor-pointer";
+            }
+
+            return (
+              <div key={room.id || idx} onClick={() => !isConflict && handleSelectRoom(room)} className={cardStyle}>
+                <div className="flex justify-between items-center mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`font-semibold text-sm ${isConflict ? "text-red-700" : "text-gray-800"}`}>
+                      {roomName}
+                    </span>
+                    {roomCapacity && (
+                      <span className="text-[11px] text-gray-400">({roomCapacity} seats)</span>
+                    )}
+                  </div>
+                  {isConflict ? (
+                    <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded">Booked / Busy</span>
+                  ) : isSelected ? (
+                    <span className="text-[10px] font-semibold text-white bg-indigo-600 px-2.5 py-0.5 rounded shadow-sm">Selected</span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Available</span>
+                  )}
                 </div>
-                {isConflict ? (
-                  <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded">Disabled</span>
-                ) : isSelected ? (
-                  <span className="text-[10px] font-semibold text-white bg-indigo-600 px-2.5 py-0.5 rounded shadow-sm">Selected</span>
-                ) : (
-                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Available</span>
-                )}
-              </div>
 
-              <div className="relative w-full h-5 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
-                {roomBookings.map((b, bIdx) => {
-                  const bStart = parseTime(b.startTime);
-                  const bEnd = parseTime(b.endTime);
-                  const left = (Math.max(0, bStart - startOfDayMinutes) / TOTAL_WORK_MINUTES) * 100;
-                  const width = ((bEnd - bStart) / TOTAL_WORK_MINUTES) * 100;
+                <div className="relative w-full h-5 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
+                  {roomBookings.map((b, bIdx) => {
+                    const info = getBookingInfo(b);
+                    const bStart = parseTime(info.startTime);
+                    const bEnd = parseTime(info.endTime);
+                    const left = (Math.max(0, bStart - startOfDayMinutes) / TOTAL_WORK_MINUTES) * 100;
+                    const width = ((bEnd - bStart) / TOTAL_WORK_MINUTES) * 100;
 
-                  return (
+                    return (
+                      <div 
+                        key={bIdx} title={`Booked: ${info.startTime} - ${info.endTime}`}
+                        style={{ left: `${left}%`, width: `${width}%` }}
+                        className="absolute top-0 bottom-0 bg-red-500 border-r border-white/50 z-10"
+                      />
+                    );
+                  })}
+
+                  {userSelectWidth > 0 && !isConflict && (
                     <div 
-                      key={bIdx} title={`Booked: ${b.startTime} - ${b.endTime}`}
-                      style={{ left: `${left}%`, width: `${width}%` }}
-                      className="absolute top-0 bottom-0 bg-red-500 border-r border-white/50 z-10"
+                      style={{ left: `${userSelectLeft}%`, width: `${userSelectWidth}%` }}
+                      className={`absolute top-0 bottom-0 transition-all z-20 ${
+                        isSelected ? "bg-indigo-600 border-2 border-indigo-800 shadow-md" : "bg-emerald-500 border border-emerald-600"
+                      }`}
                     />
-                  );
-                })}
-
-                {userSelectWidth > 0 && !isConflict && (
-                  <div 
-                    style={{ left: `${userSelectLeft}%`, width: `${userSelectWidth}%` }}
-                    className={`absolute top-0 bottom-0 transition-all z-20 ${
-                      isSelected ? "bg-indigo-600 border-2 border-indigo-800 shadow-md" : "bg-emerald-500 border border-emerald-600"
-                    }`}
-                  />
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </div>
   );

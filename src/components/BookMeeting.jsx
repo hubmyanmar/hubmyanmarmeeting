@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import BookingForm from './books/BookingForm';
 import RoomAvailability from './books/RoomAvailability';
@@ -25,19 +25,15 @@ const initialData = {
   inviteCliq: true
 };
 
-export default function BookMeeting({ setBookedMeetings, currentUser}) {
+export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], currentUser }) {
   const [data, setData] = useState(initialData);
+  const [isLoading, setIsLoading] = useState(false);
+  const [fetchedMeetings, setFetchedMeetings] = useState([]);
+  const [rooms, setRooms] = useState([]);
 
-  const getStoredMeetings = () => {
-    try {
-      const saved = localStorage.getItem('bookedMeetings');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  };
-
-  const [bookedMeetings, setLocalBookedMeetings] = useState(getStoredMeetings());
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || 
+    (typeof process !== 'undefined' ? process.env?.REACT_APP_API_URL : '') || 
+    'http://localhost:8000';
 
   const showAlert = (icon, title, text) => {
     Swal.fire({
@@ -49,9 +45,61 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
     });
   };
 
-  // BookingForm က ပို့ပေးလိုက်သော finalMeetingData ကို parameter အနေဖြင့် လက်ခံရန် (submittedData)
-  const handleBook = (submittedData) => {
-    // 1. Data Validations
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/meeting-rooms/`);
+        if (res.ok) {
+          const roomData = await res.json();
+          setRooms(Array.isArray(roomData) ? roomData : []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch meeting rooms:", error);
+      }
+    };
+    fetchRooms();
+  }, [API_BASE_URL]);
+
+  const fetchBookedMeetings = useCallback(async (selectedDate, abortSignal) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/?date=${selectedDate}`, { signal: abortSignal });
+      if (res.ok) {
+        const meetings = await res.json();
+        const validMeetings = Array.isArray(meetings) ? meetings : [];
+        setFetchedMeetings(validMeetings);
+        if (typeof setBookedMeetings === 'function') {
+          setBookedMeetings(validMeetings);
+        }
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error("Failed to fetch booked meetings:", error);
+      }
+    }
+  }, [API_BASE_URL, setBookedMeetings]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchBookedMeetings(data.date || getTodayDate(), controller.signal);
+    return () => controller.abort();
+  }, [data.date, fetchBookedMeetings]);
+
+  const convertTo24Hour = (time12h) => {
+    if (!time12h) return null;
+    const [time, modifier] = time12h.split(' ');
+    if (!time || !modifier) return time12h;
+    let [hours, minutes] = time.split(':');
+    
+    if (hours === '12') {
+      hours = modifier === 'AM' ? '00' : '12';
+    } else if (modifier === 'PM') {
+      hours = String(parseInt(hours, 10) + 12);
+    }
+    
+    return `${hours.padStart(2, '0')}:${minutes}`;
+  };
+
+  const handleBook = async () => {
     if (!data.title?.trim()) {
       showAlert('warning', 'လိုအပ်ချက်ရှိနေပါသည်', 'Meeting Title ဖြည့်ပေးပါ။');
       return;
@@ -73,48 +121,70 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
       return;
     }
 
-    const newBooking = {
-      title: data.title,
-      purpose: data.purpose,
-      meetingType: data.meetingType,
-      platform: data.platform,
-      room: data.room,
-      date: data.date,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      participants: data.participants,
-      company: data.company,
-      organizer: currentUser?.fullName || currentUser?.name || 'User',
-      // BookingForm ထဲက generate လုပ်ထားသော meetingLink ပါလာပါက ထည့်သွင်းပေးမည်
-      meetingLink: submittedData?.meetingLink || data.meetingLink || "" 
+    const startTime24 = convertTo24Hour(data.startTime);
+    const endTime24 = convertTo24Hour(data.endTime);
+
+    const payload = {
+      title: data.title.trim(),
+      agenda: data.purpose ? data.purpose.trim() : null,
+      company_name: data.company.trim(),
+      meeting_date: data.date,
+      start_time: startTime24.length === 5 ? `${startTime24}:00` : startTime24,
+      end_time: endTime24.length === 5 ? `${endTime24}:00` : endTime24,
+      meeting_type: data.meetingType.toLowerCase() === "face to face" ? "face to face" : "online",
+      platform: data.meetingType.toLowerCase() === "online" ? (data.platform || null) : null,
+      room_id: data.meetingType.toLowerCase() === "face to face" && data.room ? Number(data.room) : null,
+      created_by: currentUser?.id || 1, 
+      invite_cliq: Boolean(data.inviteCliq),
+      participants: (data.participants || []).map(p => ({
+        email: p.email,
+        name: p.name || "",
+        zoho_user_id: p.zoho_user_id ? String(p.zoho_user_id) : p.email
+      })),
+      participant_emails: (data.participants || []).map(p => p.email)
     };
 
-    const updatedMeetings = [...bookedMeetings, newBooking];
-    setLocalBookedMeetings(updatedMeetings);
-    localStorage.setItem('bookedMeetings', JSON.stringify(updatedMeetings));
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/v1/meetings/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-    if (typeof setBookedMeetings === 'function') {
-      setBookedMeetings(updatedMeetings);
+      if (response.ok) {
+        const locationText = data.meetingType === "Online" ? `${data.platform} (Online)` : `Room ${data.room}`;
+        showAlert(
+          'success', 
+          'အောင်မြင်ပါသည်!', 
+          `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking တင်ပြီးပါပြီ။`
+        );
+        fetchBookedMeetings(data.date);
+        handleClear();
+      } else {
+        const errorData = await response.json();
+        showAlert(
+          'error', 
+          'Booking မအောင်မြင်ပါ', 
+          errorData.detail || 'အချိန်တူနေပါသည် သို့မဟုတ် အချက်အလက် မှားယွင်းနေပါသည်။'
+        );
+      }
+    } catch (error) {
+      showAlert('error', 'Network Error!', 'Server သို့ ချိတ်ဆက်၍ မရပါ။');
+    } finally {
+      setIsLoading(false);
     }
-    window.dispatchEvent(new Event('sync-booked-meetings'));
-    const locationText = data.meetingType === "Online" ? `${data.platform} (Online)` : data.room;
-    
-    showAlert(
-      'success', 
-      'အောင်မြင်ပါသည်!', 
-      `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking ရရှိပါပြီ။`
-    );
-
-    handleClear();
   };
 
   const handleClear = () => {
     setData(initialData);
   };
 
+  const activeBookedMeetings = bookedMeetings.length > 0 ? bookedMeetings : fetchedMeetings;
+
   return (
-    <div className="max-w-[1400px] mx-auto">
-      <div className="mb-3">
+    <div className="max-w-[1400px] mx-auto p-4">
+      <div className="mb-4">
         <h2 className="text-2xl font-bold text-gray-900">Book a Meeting</h2>
         <p className="text-gray-500 text-sm mt-0.5">Schedule a new meeting</p>
       </div>
@@ -124,13 +194,16 @@ export default function BookMeeting({ setBookedMeetings, currentUser}) {
           data={data} 
           setData={setData} 
           onBook={handleBook} 
-          onClear={handleClear} 
-          bookedMeetings={bookedMeetings}
+          onClear={handleClear}
+          isLoading={isLoading} 
+          bookedMeetings={activeBookedMeetings} 
+          rooms={rooms}
         />
         <RoomAvailability 
           data={data} 
           setData={setData} 
-          bookedMeetings={bookedMeetings} 
+          bookedMeetings={activeBookedMeetings} 
+          rooms={rooms} 
         />
       </div>
     </div>
