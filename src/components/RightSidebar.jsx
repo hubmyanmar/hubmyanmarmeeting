@@ -1,9 +1,11 @@
 import React from 'react';
 import { CalendarPlus, FileText, Upload, ListChecks } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
 const formatDisplayDate = (dateString) => {
-  if (!dateString) return '';
+  if (!dateString) return 'Upcoming';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return String(dateString);
   return date.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -12,18 +14,53 @@ const formatDisplayDate = (dateString) => {
 };
 
 const getDaysLeftBadge = (dateString) => {
-  if (!dateString) return '';
+  if (!dateString) return 'Soon';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
   const target = new Date(dateString);
   target.setHours(0, 0, 0, 0);
 
+  if (isNaN(target.getTime())) return 'Upcoming';
+
   const diffTime = target - today;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+  if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Tomorrow';
-  return `${diffDays} days`;
+  if (diffDays < 0) return 'Passed';
+  return `${diffDays} days left`;
+};
+
+const formatTimeToAMPM = (timeStr) => {
+  if (!timeStr) return '';
+  const upper = String(timeStr).toUpperCase();
+  if (upper.includes('AM') || upper.includes('PM')) {
+    return upper;
+  }
+
+  const parts = String(timeStr).trim().split(':');
+  if (parts.length < 2) return timeStr;
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+
+  if (isNaN(hours)) return timeStr;
+
+  const modifier = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  const formattedHours = String(hours).padStart(2, '0');
+  return `${formattedHours}:${minutes} ${modifier}`;
+};
+
+const formatDisplayValue = (val, fallback = '') => {
+  if (!val) return fallback;
+  if (typeof val === 'object') {
+    return val.name || val.title || val.room_name || val.room || fallback;
+  }
+  return String(val);
 };
 
 const ActionItem = ({ icon, label, onClick }) => (
@@ -43,24 +80,29 @@ const UpcomingItem = ({ date, time, title, room, badge }) => (
     <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-2 shrink-0"></div>
     <div className="flex-1">
       <div className="flex justify-between items-start mb-0.5">
-        <p className="text-[11px] font-bold text-gray-500">{date}, {time}</p>
+        <p className="text-[11px] font-bold text-gray-500">
+          {date}{time ? `, ${time}` : ''}
+        </p>
         <span className="bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold px-2 py-0.5 rounded">
           {badge}
         </span>
       </div>
       <h4 className="text-sm font-bold text-gray-900 line-clamp-1">{title}</h4>
-      <p className="text-[12px] text-gray-500 mt-0.5">{room}</p>
+      {room && <p className="text-[12px] text-gray-500 mt-0.5">{room}</p>}
     </div>
   </div>
 );
 
-// --- Main Component ---
-
 export default function RightSidebar({ upcomingMeetings = [] }) {
   const navigate = useNavigate();
-
   const displayMeetings = [...upcomingMeetings]
-    .sort((a, b) => new Date(`${a.date} ${a.startTime}`) - new Date(`${b.date} ${b.startTime}`))
+    .sort((a, b) => {
+      const dateA = a.date || a.meeting_date || a.created_at || '';
+      const timeA = a.startTime || a.start_time || a.time || '00:00';
+      const dateB = b.date || b.meeting_date || b.created_at || '';
+      const timeB = b.startTime || b.start_time || b.time || '00:00';
+      return new Date(`${dateA} ${timeA}`) - new Date(`${dateB} ${timeB}`);
+    })
     .slice(0, 4);
 
   return (
@@ -105,18 +147,24 @@ export default function RightSidebar({ upcomingMeetings = [] }) {
         
         <div className="space-y-4">
           {displayMeetings.length > 0 ? (
-            displayMeetings.map((meeting, index) => (
-              <UpcomingItem 
-                key={meeting.id || index}
-                date={formatDisplayDate(meeting.date)}
-                time={meeting.startTime}
-                title={meeting.title}
-                room={meeting.room}
-                badge={getDaysLeftBadge(meeting.date)}
-              />
-            ))
+            displayMeetings.map((meeting, index) => {
+              const meetingDate = meeting.date || meeting.meeting_date || meeting.start_date;
+              const meetingTime = meeting.startTime || meeting.start_time || meeting.time;
+              const meetingTitle = meeting.title || meeting.meeting_title || meeting.name;
+              const meetingRoom = meeting.room || meeting.meeting_room || meeting.room_name;
+
+              return (
+                <UpcomingItem 
+                  key={meeting.id || index}
+                  date={formatDisplayDate(meetingDate)}
+                  time={formatTimeToAMPM(meetingTime)}
+                  title={formatDisplayValue(meetingTitle, 'Untitled Meeting')}
+                  room={formatDisplayValue(meetingRoom)}
+                  badge={getDaysLeftBadge(meetingDate)}
+                />
+              );
+            })
           ) : (
-            
             <div className="text-center py-6 text-sm text-gray-400">
               No upcoming meetings scheduled.
             </div>

@@ -11,54 +11,94 @@ const getTodayDateString = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const formatDisplayValue = (val, fallback = '') => {
+  if (!val) return fallback;
+  if (typeof val === 'object') {
+    return val.name || val.title || val.room_name || val.room || fallback;
+  }
+  return String(val);
+};
+
 const parseMeetingDateTime = (dateStr, timeStr) => {
-  if (!timeStr || !dateStr) return new Date();
-  const [time, modifier] = timeStr.split(' ');
+  const safeDateStr = formatDisplayValue(dateStr);
+  const safeTimeStr = formatDisplayValue(timeStr);
+
+  if (!safeTimeStr || !safeDateStr) return new Date();
+  
+  const parts = safeTimeStr.split(' ');
+  const time = parts[0] || '00:00';
+  const modifier = (parts[1] || '').toUpperCase();
+  
   let [hours, minutes] = time.split(':');
-  hours = parseInt(hours, 10);
+  hours = parseInt(hours || 0, 10);
+  
   if (modifier === 'PM' && hours < 12) hours += 12;
   if (modifier === 'AM' && hours === 12) hours = 0;
 
-  const d = new Date(dateStr);
-  d.setHours(hours, parseInt(minutes, 10), 0, 0);
+  const d = new Date(safeDateStr);
+  if (isNaN(d.getTime())) return new Date();
+
+  d.setHours(hours, parseInt(minutes || 0, 10), 0, 0);
   return d;
 };
 
 export default function DashboardHome() {
   const location = useLocation();
   const [currentUser, setCurrentUser] = useState(
-    location.state?.user || JSON.parse(localStorage.getItem('currentUser')) || null
+    location.state?.user || null
   );
 
   const [bookedMeetings, setBookedMeetings] = useState([]);
   const [meetingSessions, setMeetingSessions] = useState({});
 
   useEffect(() => {
-    if (location.state?.user) {
-      localStorage.setItem('currentUser', JSON.stringify(location.state.user));
-    }
-
-    const loadData = () => {
+    // 1. Fetch Current User
+    const fetchUser = async () => {
       try {
-        const meetings = localStorage.getItem('bookedMeetings');
-        if (meetings) setBookedMeetings(JSON.parse(meetings));
-
-        const sessions = localStorage.getItem('meetingSessions');
-        if (sessions) setMeetingSessions(JSON.parse(sessions));
+        if (!currentUser) {
+          const res = await fetch('http://127.0.0.1:8000/api/v1/users');
+          if (res.ok) {
+            const userData = await res.json();
+            setCurrentUser(userData);
+          }
+        }
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('Error fetching user:', error);
+      }
+    };
+    const loadDataFromBackend = async () => {
+      try {
+        const meetingsRes = await fetch('http://127.0.0.1:8000/api/v1/meetings');
+        if (meetingsRes.ok) {
+          const meetingsData = await meetingsRes.json();
+          const sanitizedMeetings = Array.isArray(meetingsData) ? meetingsData.map(m => ({
+            ...m,
+            title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
+            room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
+            date: formatDisplayValue(m.date || m.meeting_date)
+          })) : [];
+          setBookedMeetings(sanitizedMeetings);
+        }
+
+        const sessionsRes = await fetch('http://127.0.0.1:8000/api/v1/meeting-sessions');
+        if (sessionsRes.ok) {
+          const sessionsData = await sessionsRes.json();
+          setMeetingSessions(sessionsData || {});
+        }
+      } catch (error) {
+        console.error('Error loading data from backend:', error);
       }
     };
 
-    loadData();
-    window.addEventListener('storage', loadData);
-    window.addEventListener('sync-booked-meetings', loadData);
-    window.addEventListener('sync-meeting-sessions', loadData);
+    fetchUser();
+    loadDataFromBackend();
+
+    window.addEventListener('sync-booked-meetings', loadDataFromBackend);
+    window.addEventListener('sync-meeting-sessions', loadDataFromBackend);
 
     return () => {
-      window.removeEventListener('storage', loadData);
-      window.removeEventListener('sync-booked-meetings', loadData);
-      window.removeEventListener('sync-meeting-sessions', loadData);
+      window.removeEventListener('sync-booked-meetings', loadDataFromBackend);
+      window.removeEventListener('sync-meeting-sessions', loadDataFromBackend);
     };
   }, []);
 
@@ -66,24 +106,34 @@ export default function DashboardHome() {
     const todayStr = getTodayDateString(); 
     const now = new Date(); 
     
-    const today = bookedMeetings.filter(m => m.date === todayStr);
-    const upcoming = bookedMeetings.filter(m => m.date && m.date > todayStr);
+    const today = bookedMeetings.filter(m => {
+      const mDate = formatDisplayValue(m.date || m.meeting_date);
+      return mDate.includes(todayStr) || todayStr.includes(mDate);
+    });
 
-    // -- Pending
+    const upcoming = bookedMeetings.filter(m => {
+      const mDate = formatDisplayValue(m.date || m.meeting_date);
+      return mDate && mDate > todayStr;
+    });
+
+    // -- Pending Count
     const completedCount = today.filter(m => {
-      const id = m.id || `meeting_${m.title}_${m.startTime}`.replace(/[^a-zA-Z0-9]/g, '_');
+      const mTitle = formatDisplayValue(m.title || 'meeting');
+      const mTime = formatDisplayValue(m.start_time || m.startTime || '');
+      const id = m.id || `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
       return meetingSessions[id]?.status === 'stopped';
     }).length;
 
-    // -- Overdue
+    // -- Overdue Count
     const overdue = bookedMeetings.filter(m => {
-      const id = m.id || `meeting_${m.title}_${m.startTime}`.replace(/[^a-zA-Z0-9]/g, '_');
+      const mTitle = formatDisplayValue(m.title || 'meeting');
+      const mTime = formatDisplayValue(m.start_time || m.startTime || '');
+      const id = m.id || `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
       const status = meetingSessions[id]?.status;
 
       if (status === 'stopped' || status === 'running') return false;
 
-      const meetingDateTime = parseMeetingDateTime(m.date, m.startTime);
-
+      const meetingDateTime = parseMeetingDateTime(m.date || m.meeting_date, m.start_time || m.startTime);
       const gracePeriodTime = new Date(meetingDateTime.getTime() + (15 * 60 * 1000));
 
       return now > gracePeriodTime; 
@@ -92,7 +142,7 @@ export default function DashboardHome() {
     return {
       todayMeetings: today,
       upcomingMeetings: upcoming,
-      pendingCount: today.length - completedCount, 
+      pendingCount: Math.max(0, today.length - completedCount), 
       overdueCount: overdue
     };
   }, [bookedMeetings, meetingSessions]);

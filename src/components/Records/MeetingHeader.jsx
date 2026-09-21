@@ -4,8 +4,15 @@ import {
   Link as LinkIcon, Mail, Share2, Check, MessageCircle, Send
 } from 'lucide-react';
 
-export default function MeetingHeader({ 
+const formatDisplayValue = (val, fallback = '') => {
+  if (!val) return fallback;
+  if (typeof val === 'object') {
+    return val.name || val.title || val.room_name || val.room || val.label || JSON.stringify(val);
+  }
+  return String(val);
+};
 
+export default function MeetingHeader({ 
   title = "", 
   date = "",
   startTime = "",
@@ -24,12 +31,20 @@ export default function MeetingHeader({
   const dropdownRef = useRef(null);
 
   const isReady = status === "done";
-  const formattedDate = new Date(date).toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric', weekday: 'short'
-  });
+  
+  const safeDateStr = formatDisplayValue(date);
+  const parsedDate = safeDateStr ? new Date(safeDateStr) : new Date();
+  const formattedDate = !isNaN(parsedDate.getTime()) 
+    ? parsedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })
+    : safeDateStr || 'Today';
 
-  const visibleParticipants = participants.slice(0, 4);
-  const remainingCount = participants.length > 4 ? participants.length - 4 : 0;
+  const safeTitle = formatDisplayValue(title, 'Untitled Meeting');
+  const safeRoom = formatDisplayValue(room, 'Main Room');
+  const safeStartTime = formatDisplayValue(startTime);
+  const safeEndTime = formatDisplayValue(endTime);
+
+  const visibleParticipants = Array.isArray(participants) ? participants.slice(0, 4) : [];
+  const remainingCount = Array.isArray(participants) && participants.length > 4 ? participants.length - 4 : 0;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -44,25 +59,26 @@ export default function MeetingHeader({
   const handleDownloadPDF = () => {
     if (!isReady) return;
 
-    const actionRowsHtml = actionItems.map(item => `
+    const actionRowsHtml = Array.isArray(actionItems) ? actionItems.map(item => `
       <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${item.task}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${item.owner}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${item.dueDate}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${formatDisplayValue(item.task)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${formatDisplayValue(item.owner)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${formatDisplayValue(item.dueDate)}</td>
         <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">
           <span style="background: #FFF4ED; color: #B93815; padding: 3px 8px; border-radius: 6px; font-size: 11px;">
-            ${item.status}
+            ${formatDisplayValue(item.status)}
           </span>
         </td>
       </tr>
-    `).join('');
+    `).join('') : '';
 
-    const decisionsHtml = keyDecisions.map(d => `<li style="margin-bottom: 8px;">✔ ${d}</li>`).join('');
+    const decisionsHtml = Array.isArray(keyDecisions) ? keyDecisions.map(d => `<li style="margin-bottom: 8px;">✔ ${formatDisplayValue(d)}</li>`).join('') : '';
+    
     const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${title} - Meeting Summary</title>
+          <title>${safeTitle} - Meeting Summary</title>
           <style>
             @page { margin: 15mm; }
             body { font-family: sans-serif; color: #1f2937; line-height: 1.6; padding: 10px; }
@@ -77,18 +93,18 @@ export default function MeetingHeader({
         </head>
         <body>
           <div class="header">
-            <div class="title">${title}</div>
+            <div class="title">${safeTitle}</div>
             <div class="meta-info">
               <span>📅 ${formattedDate}</span>
-              <span>🕒 ${startTime} - ${endTime}</span>
-              <span>📍 ${room}</span>
-              <span>👥 ${participants.length} Attendees</span>
+              <span>🕒 ${safeStartTime} ${safeEndTime ? `- ${safeEndTime}` : ''}</span>
+              <span>📍 ${safeRoom}</span>
+              <span>👥 ${Array.isArray(participants) ? participants.length : 0} Attendees</span>
             </div>
           </div>
           <div class="section-title">AI Summary (English)</div>
-          <p>${englishSummary}</p>
+          <p>${formatDisplayValue(englishSummary)}</p>
           <div class="section-title">AI Summary (Myanmar)</div>
-          <p>${myanmarSummary}</p>
+          <p>${formatDisplayValue(myanmarSummary)}</p>
           <div class="section-title">Key Decisions</div>
           <ul>${decisionsHtml}</ul>
           <div class="section-title">Action Items</div>
@@ -115,10 +131,10 @@ export default function MeetingHeader({
 
   const shareActions = {
     copy: async () => { await navigator.clipboard.writeText(window.location.href); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); },
-    email: () => window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(window.location.href)}`,
-    whatsapp: () => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(title + '\n' + window.location.href)}`),
-    telegram: () => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(title)}`),
-    native: async () => navigator.share ? await navigator.share({ title, url: window.location.href }) : shareActions.copy()
+    email: () => window.location.href = `mailto:?subject=${encodeURIComponent(safeTitle)}&body=${encodeURIComponent(window.location.href)}`,
+    whatsapp: () => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(safeTitle + '\n' + window.location.href)}`),
+    telegram: () => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(safeTitle)}`),
+    native: async () => navigator.share ? await navigator.share({ title: safeTitle, url: window.location.href }) : shareActions.copy()
   };
 
   return (
@@ -126,27 +142,44 @@ export default function MeetingHeader({
       <div className="flex items-center text-sm font-medium text-gray-500">
         <span className="text-violet-600 cursor-pointer hover:underline">Meeting Records</span>
         <ChevronRight size={16} className="mx-2" />
-        <span className="text-gray-900">{title}</span>
+        <span className="text-gray-900">{safeTitle}</span>
       </div>
       
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-[28px] font-bold text-gray-900 mb-3">{title}</h1>
+          <h1 className="text-2xl lg:text-[28px] font-bold text-gray-900 mb-3">{safeTitle}</h1>
           
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
             <span className="flex items-center gap-1.5"><Calendar size={16}/> {formattedDate}</span>
-            <span className="flex items-center gap-1.5"><Clock size={16}/> {startTime} - {endTime}</span>
-            <span className="flex items-center gap-1.5"><MapPin size={16}/> {room}</span>
+            {safeStartTime && (
+              <span className="flex items-center gap-1.5">
+                <Clock size={16}/> {safeStartTime} {safeEndTime ? `- ${safeEndTime}` : ''}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5"><MapPin size={16}/> {safeRoom}</span>
             
-            {/* Attendees (Dynamic) */}
-            {participants.length > 0 && (
+            {Array.isArray(participants) && participants.length > 0 && (
               <div className="flex items-center ml-2">
                 <div className="flex -space-x-2">
-                  {visibleParticipants.map((p, i) => (
-                    <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 uppercase">
-                      {p.name ? p.name.charAt(0) : '👤'}
-                    </div>
-                  ))}
+                  {visibleParticipants.map((p, i) => {
+                    // p က object ဖြစ်နေရင် name, username, email ဒါမှမဟုတ် index ပေါ်မူတည်ပြီး သေချာထုတ်ရန်
+                    let pName = 'User';
+                    if (typeof p === 'object' && p !== null) {
+                      pName = p.name || p.username || p.email || p.title || `User ${i + 1}`;
+                    } else if (typeof p === 'string') {
+                      pName = p;
+                    }
+
+                    // နာမည်ရဲ့ ပထမဆုံး စာလုံးတစ်လုံးတည်းကိုသာ ယူခြင်း (ဥပမာ - "Aung Min" ဆိုရင် "A")
+                    const trimmedName = String(pName).trim();
+                    let initial = trimmedName.length > 0 ? trimmedName.charAt(0).toUpperCase() : 'U';
+
+                    return (
+                      <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700 uppercase" title={pName}>
+                        {initial}
+                      </div>
+                    );
+                  })}
                 </div>
                 {remainingCount > 0 && (
                   <span className="ml-1 text-xs font-medium bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">

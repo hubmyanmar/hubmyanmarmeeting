@@ -11,21 +11,64 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
+const formatTimeToAMPM = (timeStr) => {
+  if (!timeStr) return '';
+  const upper = String(timeStr).toUpperCase();
+  if (upper.includes('AM') || upper.includes('PM')) {
+    return upper;
+  }
+  const parts = String(timeStr).trim().split(':');
+  if (parts.length < 2) return timeStr;
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+
+  if (isNaN(hours)) return timeStr;
+
+  const modifier = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  const formattedHours = String(hours).padStart(2, '0');
+  return `${formattedHours}:${minutes} ${modifier}`;
+};
+
 const parseTimeToDate = (timeStr) => {
   if (!timeStr) return new Date();
-  const [time, modifier] = timeStr.split(' ');
-  let [hours, minutes] = time.split(':');
+  const formattedStr = formatTimeToAMPM(timeStr);
+  const parts = formattedStr.split(' ');
+  const timePart = parts[0];
+  const modifier = parts[1] || '';
   
-  hours = parseInt(hours, 10);
+  let [hours, minutes] = timePart.split(':');
+  hours = parseInt(hours || 0, 10);
+  
   if (modifier === 'PM' && hours < 12) hours += 12;
   if (modifier === 'AM' && hours === 12) hours = 0;
   
   const d = new Date();
-  d.setHours(hours, parseInt(minutes, 10), 0, 0);
+  d.setHours(hours, parseInt(minutes || 0, 10), 0, 0);
   return d;
 };
 
-// --- Child Component: ScheduleItem ---
+const formatDisplayValue = (val) => {
+  if (!val) return '';
+  if (typeof val === 'object') {
+    return val.name || val.title || val.room_name || val.room || val.label || JSON.stringify(val);
+  }
+  return String(val);
+};
+
+const sanitizeMeetingData = (meeting) => {
+  if (!meeting) return {};
+  return {
+    ...meeting,
+    title: formatDisplayValue(meeting.title || meeting.meeting_title || meeting.name),
+    room: formatDisplayValue(meeting.room || meeting.meeting_room || meeting.room_name),
+    date: formatDisplayValue(meeting.date || meeting.meeting_date),
+  };
+};
+
 const ScheduleItem = ({ time, title, room, status, text, onJoin, onView, roomInfo }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -33,16 +76,15 @@ const ScheduleItem = ({ time, title, room, status, text, onJoin, onView, roomInf
     <div className="flex items-center justify-between py-3 transition-colors hover:bg-gray-50/50 px-2 rounded-lg -mx-2">
       {/* Meeting Info */}
       <div className="flex items-center gap-6">
-        <span className="text-sm font-bold text-indigo-600 w-20">{time}</span>
+        <span className="text-sm font-bold text-indigo-600 w-24">{time}</span>
         <div>
-          <h4 className="text-sm font-bold text-gray-900">{title}</h4>
-          <p className="text-xs text-gray-500 mt-0.5">{room}</p>
+          <h4 className="text-sm font-bold text-gray-900">{formatDisplayValue(title)}</h4>
+          <p className="text-xs text-gray-500 mt-0.5">{formatDisplayValue(room)}</p>
         </div>
       </div>
 
       {/* Action Buttons & Status Badges */}
       <div>
-        {/* 1. Running Status Badge */}
         {status === 'badge' && (
           <div className="relative inline-block">
             <button 
@@ -79,7 +121,6 @@ const ScheduleItem = ({ time, title, room, status, text, onJoin, onView, roomInf
           </button>
         )}
         
-        {/* 3. Join Meeting Button */}
         {status === 'primary' && (
           <button 
             onClick={onJoin} 
@@ -89,7 +130,6 @@ const ScheduleItem = ({ time, title, room, status, text, onJoin, onView, roomInf
           </button>
         )}
         
-        {/* 4. View Meeting Button (Future/Missed) */}
         {status === 'outline' && (
           <button 
             onClick={onView} 
@@ -108,7 +148,6 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Initialize sessions from LocalStorage
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem('meetingSessions');
@@ -119,9 +158,8 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
     }
   });
 
-  // Sync Timer & Storage Events
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // Update every minute
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
 
     const handleStorageChange = () => {
       try {
@@ -132,10 +170,8 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
       }
     };
 
-    // Initial fetch to guarantee accuracy on mount
     handleStorageChange();
 
-    // Listeners for multi-tab and single-tab real-time updates
     window.addEventListener('storage', handleStorageChange); 
     window.addEventListener('sync-meeting-sessions', handleStorageChange); 
 
@@ -146,7 +182,6 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
     };
   }, []);
 
-  // Handlers
   const handleJoin = (item) => {
     const meetingId = item.id;
     const nowIso = new Date().toISOString();
@@ -157,41 +192,51 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
         status: 'running',
         startedAt: nowIso,
         stoppedAt: null,
-        room: item.room || item.originalData?.room || 'Unknown Room',
-        date: item.date || item.originalData?.date || nowIso.split('T')[0],
-        originalData: item.originalData || item
+        room: formatDisplayValue(item.room || item.originalData?.room || 'Unknown Room'),
+        date: formatDisplayValue(item.date || item.originalData?.date || item.originalData?.meeting_date || nowIso.split('T')[0]),
+        originalData: sanitizeMeetingData(item.originalData || item)
       }
     };
 
     setSessions(updatedSessions);
     localStorage.setItem('meetingSessions', JSON.stringify(updatedSessions));
+    const cleanedOriginal = sanitizeMeetingData(item.originalData || item);
+    const meetingWithId = { ...cleanedOriginal, id: meetingId };
 
-    const meetingWithId = { ...item.originalData, id: meetingId };
-
-    // --- Zoom (သို့) Online Meeting Link ရှိပါက Tab အသစ်ဖြင့် အလိုအလျောက် ဖွင့်ပေးရန် ---
-    if (meetingWithId?.meetingLink) {
-      window.open(meetingWithId.meetingLink, '_blank');
+    if (meetingWithId?.meetingLink || meetingWithId?.meeting_link) {
+      window.open(meetingWithId.meetingLink || meetingWithId.meeting_link, '_blank');
     }
 
     navigate('/dashboard/meeting-records', { state: { meeting: meetingWithId, mode: 'join' } });
   };
 
   const handleView = (item) => {
-    const meetingWithId = { ...item.originalData, id: item.id };
+    const cleanedOriginal = sanitizeMeetingData(item.originalData || item);
+    const meetingWithId = { ...cleanedOriginal, id: item.id };
     navigate('/dashboard/action-items', { state: { meeting: meetingWithId, mode: 'view' } });
   };
 
-  // Data Processing
   const todayDate = getTodayDate();
 
-  const dynamicScheduleData = bookedMeetings
-    .filter(m => m.date === todayDate)
-    .sort((a, b) => parseTimeToDate(a.startTime) - parseTimeToDate(b.startTime))
+  const todayFilteredMeetings = bookedMeetings.filter(m => {
+    const rawDate = m.date || m.meeting_date || '';
+    return String(rawDate).includes(todayDate) || todayDate.includes(String(rawDate));
+  });
+
+  const dynamicScheduleData = todayFilteredMeetings
+    .sort((a, b) => {
+      const timeStrA = a.startTime || a.start_time || '00:00';
+      const timeStrB = b.startTime || b.start_time || '00:00';
+      return parseTimeToDate(timeStrA) - parseTimeToDate(timeStrB);
+    })
     .map((meeting, index) => {
-      // Create a stable unique identifier
-      const meetingId = meeting.id || `meeting_${index}_${meeting.title}_${meeting.startTime}`.replace(/[^a-zA-Z0-9]/g, '_');
+      const titleStr = formatDisplayValue(meeting.title || meeting.meeting_title || 'meeting');
+      const meetingId = meeting.id || `meeting_${index}_${titleStr}`.replace(/[^a-zA-Z0-9]/g, '_');
       
-      const start = parseTimeToDate(meeting.startTime);
+      const rawStartTime = meeting.startTime || meeting.start_time || '12:00:00';
+      const startTimeStr = formatTimeToAMPM(rawStartTime);
+      
+      const start = parseTimeToDate(rawStartTime);
       const diffStartMs = start - currentTime;
       const diffStartMins = Math.floor(diffStartMs / (1000 * 60)); 
       
@@ -201,13 +246,10 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
       let text = 'View';
       let roomInfo = null;
 
-      // 1. Meeting is Stopped (Completed)
       if (session?.status === 'stopped') {
         status = 'completed';
         text = 'Completed';
-      } 
-      // 2. Meeting is currently Running
-      else if (session?.status === 'running') {
+      } else if (session?.status === 'running') {
         const startTimeObj = new Date(session.startedAt);
         const elapsedMins = Math.max(0, Math.floor((currentTime - startTimeObj) / (1000 * 60)));
         status = 'badge';
@@ -222,23 +264,19 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
           joinedCount: memberCount,
           elapsed: `${elapsedMins} mins`
         };
-      } 
-      // 3. Meeting is about to start (-15 to +15 mins window)
-      else if (diffStartMins >= -15 && diffStartMins <= 15) {
+      } else if (diffStartMins >= -15 && diffStartMins <= 15) {
         status = 'primary';
         text = 'Join';
-      } 
-      // 4. Default / View Mode (Future or Past meetings without sessions)
-      else {
+      } else {
         status = 'outline';
         text = 'View';
       }
 
       return {
         id: meetingId,
-        time: meeting.startTime,
-        title: meeting.title,
-        room: meeting.room,
+        time: startTimeStr,
+        title: meeting.title || meeting.meeting_title || 'Untitled Meeting',
+        room: meeting.room || meeting.meeting_room || 'Main Room',
         status,
         text,
         roomInfo,
@@ -246,7 +284,6 @@ export default function TodaySchedule({ bookedMeetings = [] }) {
       };
     });
 
-  // Render Component
   return (
     <div className="bg-white p-6 sm:p-7 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
       <h3 className="text-base font-bold text-gray-900 mb-4 tracking-tight">Today's Schedule</h3>
