@@ -143,7 +143,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
       })),
       participant_emails: (data.participants || []).map(p => p.email)
     };
-
+    console.log("Payload to Backend:", data);
     try {
       setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/api/v1/meetings/`, {

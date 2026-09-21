@@ -1,7 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MeetingNavbar from './MyMeeting/MeetingNavbar';
 import MeetingHeader from './MyMeeting/MeetingHeader';
 import MeetingGrid from './MyMeeting/MeetingGrid';
+const formatTimeAMPM = (timeStr) => {
+  if (!timeStr) return '';
+  if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+    return timeStr;
+  }
+  
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1] || '00';
+  
+  if (isNaN(hours)) return timeStr;
+
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; 
+  
+  const formattedHours = hours < 10 ? `0${hours}` : hours;
+  
+  return `${formattedHours}:${minutes} ${ampm}`;
+};
 
 const checkDateFilter = (meetingDateStr, filterType) => {
   if (!meetingDateStr) return true;
@@ -33,40 +55,101 @@ const checkDateFilter = (meetingDateStr, filterType) => {
   return true;
 };
 
-export default function MyMeetings({ bookedMeetings = [] }) {
+export default function MyMeetings() {
+  const [bookedMeetings, setBookedMeetings] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [activeTab, setActiveTab] = useState('all');
   const [activeView, setActiveView] = useState('grid');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Date Filter State
   const [dateFilter, setDateFilter] = useState('This Week'); 
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await fetch('http://127.0.0.1:8000/api/v1/meetings'); 
+        
+        if (!response.ok) {
+          throw new Error(`Server Error (${response.status}): Database မှ Data ယူ၍ မရနိုင်ပါ။`);
+        }
+        
+        const data = await response.json();
+        setBookedMeetings(Array.isArray(data) ? data : []); 
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
+    fetchMeetings();
+  }, []);
   const formattedMeetings = bookedMeetings.map((b, index) => {
-    const participantsList = Array.isArray(b.participants) ? b.participants : [];
-    const count = participantsList.length || 1;
+    const rawParticipants = b.participants || b.participant_list || b.users || b.members || [];
+    const participantsList = Array.isArray(rawParticipants) ? rawParticipants.map(p => ({
+      id: p.id || p.zolog_user_id,
+      name: p.name && p.name.trim() !== '' ? p.name : (p.email ? p.email.split('@')[0] : 'User'),
+      email: p.email || ''
+    })) : [];
+    const count = participantsList.length;
+
+    const meetingDateVal = b.date || b.meeting_date || new Date().toISOString().split('T')[0];
+    const rawStartTime = b.startTime || b.start_time || '09:00:00';
+    const rawEndTime = b.endTime || b.end_time || '10:00:00';
+    const startTimeVal = formatTimeAMPM(rawStartTime);
+    const endTimeVal = formatTimeAMPM(rawEndTime);
+
+    const meetingTypeVal = (b.meetingType || b.meeting_type || '').trim().toLowerCase();
+    
+    let roomName = 'Physical Room';
+    
+    if (b.room && typeof b.room === 'object') {
+      roomName = b.room.name || b.room.room_name || 'Physical Room';
+    } else if (b.roomName) {
+      roomName = b.roomName;
+    } else if (b.room_name) {
+      roomName = b.room_name;
+    } else if (typeof b.room === 'string' && b.room.trim() !== '' && isNaN(b.room)) {
+      roomName = b.room;
+    } else if (b.meetingRoom && typeof b.meetingRoom === 'object') {
+      roomName = b.meetingRoom.name || 'Physical Room';
+    } else if (b.meeting_room && typeof b.meeting_room === 'object') {
+      roomName = b.meeting_room.name || 'Physical Room';
+    } else if (typeof b.meeting_room === 'string' && b.meeting_room.trim() !== '') {
+      roomName = b.meeting_room;
+    }
+
+    if (meetingTypeVal !== 'online' && roomName === 'Physical Room' && b.room_id) {
+      roomName = `Room ID: ${b.room_id}`;
+    }
+
     return {
       id: b.id || index + 1,
-      date: b.date || new Date().toISOString().split('T')[0],
+      date: meetingDateVal,
       status: b.status || 'PENDING',
       statusColor: b.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
       title: b.title || 'Untitled Meeting',
-      time: b.startTime && b.endTime ? `${b.startTime} - ${b.endTime}` : '09:00 AM - 10:00 AM',
-      location: b.meetingType?.trim().toLowerCase() === 'online'
-        ? 'Online Meeting'
-        : (b.room || 'Physical Room'),
+      time: `${startTimeVal} - ${endTimeVal}`,
+      location: meetingTypeVal === 'online' ? 'Online Meeting' : roomName,
       participantsList: participantsList,
       total: `${count} Participants`,
-      desc: b.purpose || 'No purpose description provided.'
+      desc: b.purpose || b.description || 'No purpose description provided.'
     };
   });
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const baseFilteredMeetings = formattedMeetings.filter((m) => {
     const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           m.location.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDate = checkDateFilter(m.date, dateFilter);
     return matchesSearch && matchesDate;
   });
+
   const upcomingCount = baseFilteredMeetings.filter(m => {
     const meetingDate = new Date(m.date);
     meetingDate.setHours(0, 0, 0, 0);
@@ -78,6 +161,7 @@ export default function MyMeetings({ bookedMeetings = [] }) {
     meetingDate.setHours(0, 0, 0, 0);
     return meetingDate < today;
   }).length;
+
   const finalFilteredMeetings = baseFilteredMeetings.filter((m) => {
     const meetingDate = new Date(m.date);
     meetingDate.setHours(0, 0, 0, 0);
@@ -90,6 +174,23 @@ export default function MyMeetings({ bookedMeetings = [] }) {
     }
     return true;
   });
+
+  // --- [ Loading & Error Screens ] ---
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f8faef]/40 flex items-center justify-center text-gray-500 text-sm font-medium">
+        Loading meetings...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f8faef]/40 flex items-center justify-center text-red-500 text-sm font-medium">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8faef]/40 text-gray-800">
