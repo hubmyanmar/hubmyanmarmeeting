@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import MeetingNavbar from './MyMeeting/MeetingNavbar';
 import MeetingHeader from './MyMeeting/MeetingHeader';
 import MeetingGrid from './MyMeeting/MeetingGrid';
+
 const formatTimeAMPM = (timeStr) => {
   if (!timeStr) return '';
   if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
@@ -55,38 +56,12 @@ const checkDateFilter = (meetingDateStr, filterType) => {
   return true;
 };
 
-export default function MyMeetings() {
-  const [bookedMeetings, setBookedMeetings] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+export default function MyMeetings({ bookedMeetings = [] }) {
   const [activeTab, setActiveTab] = useState('all');
   const [activeView, setActiveView] = useState('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('This Week'); 
-  useEffect(() => {
-    const fetchMeetings = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        const response = await fetch('http://127.0.0.1:8000/api/v1/meetings'); 
-        
-        if (!response.ok) {
-          throw new Error(`Server Error (${response.status}): Database မှ Data ယူ၍ မရနိုင်ပါ။`);
-        }
-        
-        const data = await response.json();
-        setBookedMeetings(Array.isArray(data) ? data : []); 
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    fetchMeetings();
-  }, []);
   const formattedMeetings = bookedMeetings.map((b, index) => {
     const rawParticipants = b.participants || b.participant_list || b.users || b.members || [];
     const participantsList = Array.isArray(rawParticipants) ? rawParticipants.map(p => ({
@@ -174,23 +149,6 @@ export default function MyMeetings() {
     }
     return true;
   });
-
-  // --- [ Loading & Error Screens ] ---
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#f8faef]/40 flex items-center justify-center text-gray-500 text-sm font-medium">
-        Loading meetings...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#f8faef]/40 flex items-center justify-center text-red-500 text-sm font-medium">
-        {error}
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f8faef]/40 text-gray-800">
