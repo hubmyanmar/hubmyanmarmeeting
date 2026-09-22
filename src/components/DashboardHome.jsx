@@ -42,63 +42,42 @@ const parseMeetingDateTime = (dateStr, timeStr) => {
   return d;
 };
 
-export default function DashboardHome() {
+export default function DashboardHome({ bookedMeetings: rawBookedMeetings = [], currentUser: propUser }) {
   const location = useLocation();
-  const [currentUser, setCurrentUser] = useState(
-    location.state?.user || null
+  const [currentUser] = useState(
+    propUser || location.state?.user || null
   );
+  
+  const bookedMeetings = useMemo(() => {
+    return Array.isArray(rawBookedMeetings) ? rawBookedMeetings.map(m => ({
+      ...m,
+      title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
+      room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
+      date: formatDisplayValue(m.date || m.meeting_date)
+    })) : [];
+  }, [rawBookedMeetings]);
 
-  const [bookedMeetings, setBookedMeetings] = useState([]);
   const [meetingSessions, setMeetingSessions] = useState({});
 
   useEffect(() => {
-    // 1. Fetch Current User
-    const fetchUser = async () => {
+    const loadSessionsFromBackend = async () => {
       try {
-        if (!currentUser) {
-          const res = await fetch('http://127.0.0.1:8000/api/v1/users');
-          if (res.ok) {
-            const userData = await res.json();
-            setCurrentUser(userData);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-      }
-    };
-    const loadDataFromBackend = async () => {
-      try {
-        const meetingsRes = await fetch('http://127.0.0.1:8000/api/v1/meetings');
-        if (meetingsRes.ok) {
-          const meetingsData = await meetingsRes.json();
-          const sanitizedMeetings = Array.isArray(meetingsData) ? meetingsData.map(m => ({
-            ...m,
-            title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
-            room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
-            date: formatDisplayValue(m.date || m.meeting_date)
-          })) : [];
-          setBookedMeetings(sanitizedMeetings);
-        }
-
         const sessionsRes = await fetch('http://127.0.0.1:8000/api/v1/meeting-sessions');
         if (sessionsRes.ok) {
           const sessionsData = await sessionsRes.json();
           setMeetingSessions(sessionsData || {});
         }
       } catch (error) {
-        console.error('Error loading data from backend:', error);
+        console.error('Error loading meeting sessions from backend:', error);
       }
     };
 
-    fetchUser();
-    loadDataFromBackend();
+    loadSessionsFromBackend();
 
-    window.addEventListener('sync-booked-meetings', loadDataFromBackend);
-    window.addEventListener('sync-meeting-sessions', loadDataFromBackend);
+    window.addEventListener('sync-meeting-sessions', loadSessionsFromBackend);
 
     return () => {
-      window.removeEventListener('sync-booked-meetings', loadDataFromBackend);
-      window.removeEventListener('sync-meeting-sessions', loadDataFromBackend);
+      window.removeEventListener('sync-meeting-sessions', loadSessionsFromBackend);
     };
   }, []);
 

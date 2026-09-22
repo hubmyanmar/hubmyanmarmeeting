@@ -16,24 +16,9 @@ import { RecordingProvider } from './context/RecordingContext';
 
 export default function App() {
 
-  const [bookedMeetings, setBookedMeetings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('bookedMeetings');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("Error loading booked meetings from storage:", e);
-      return [];
-    }
-  });
-
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem('currentUser');
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [bookedMeetings, setBookedMeetings] = useState([]);
+  
+  const [currentUser, setCurrentUser] = useState(null);
   
   useEffect(() => {
     const fetchMeetingsFromDB = async () => {
@@ -53,15 +38,26 @@ export default function App() {
 
     fetchMeetingsFromDB();
   }, []);
-  
-  useEffect(() => {
-    try {
-      localStorage.setItem('bookedMeetings', JSON.stringify(bookedMeetings));
-    } catch (e) {
-      console.error("Error saving booked meetings to storage:", e);
-    }
-  }, [bookedMeetings]);
 
+  useEffect(() => {
+    const fetchUserFromDB = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/v1/users');
+        if (res.ok) {
+          const userData = await res.json();
+          setCurrentUser(userData);
+        } else {
+          console.error("Failed to fetch user. Status:", res.status);
+        }
+      } catch (error) {
+        console.error('Error fetching user from Database:', error);
+      }
+    };
+    if (!currentUser) {
+      fetchUserFromDB();
+    }
+  }, [currentUser]);
+  
   const handleBookMeeting = async (newMeeting) => {
     setBookedMeetings((prev) => [...prev, newMeeting]);
   };
