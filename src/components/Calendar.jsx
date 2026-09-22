@@ -1,4 +1,27 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
+const formatTimeAMPM = (timeStr) => {
+  if (!timeStr) return '';
+  if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+    return timeStr;
+  }
+  
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1] || '00';
+  
+  if (isNaN(hours)) return timeStr;
+
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; 
+  
+  const formattedHours = hours < 10 ? `0${hours}` : hours;
+  
+  return `${formattedHours}:${minutes} ${ampm}`;
+};
 
 export default function Calendar({ bookedMeetings = [] }) {
   const START_HOUR = 0;
@@ -15,7 +38,15 @@ export default function Calendar({ bookedMeetings = [] }) {
   };
 
   const colors = Object.keys(themeMap);
-  const getInitials = (name) => {
+
+  const getInitials = (personInput) => {
+    let name = '';
+    if (typeof personInput === 'object' && personInput !== null) {
+      name = personInput.name || personInput.fullName || personInput.title || personInput.username || '';
+    } else if (typeof personInput === 'string') {
+      name = personInput;
+    }
+
     if (!name || typeof name !== 'string') return '?';
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
@@ -74,9 +105,14 @@ export default function Calendar({ bookedMeetings = [] }) {
         const startMinutes = (sHour ?? 9) * 60 + (sMin ?? 0);
         const endMinutes = startMinutes + (duration ?? 60);
 
+        let rawLocation = evt.room || evt.location || 'Physical Room';
+        if (typeof rawLocation === 'object' && rawLocation !== null) {
+          rawLocation = rawLocation.name || rawLocation.title || 'Physical Room';
+        }
+
         const locationText = evt.meetingType?.trim().toLowerCase() === 'online'
           ? 'Online Meeting'
-          : (evt.room || evt.location || 'Physical Room');
+          : rawLocation;
 
         return {
           ...evt,
@@ -136,8 +172,56 @@ export default function Calendar({ bookedMeetings = [] }) {
 
     return processedEvents;
   };
+  const formattedMeetings = bookedMeetings.map((b, index) => {
+    const rawParticipants = b.participants || b.participant_list || b.users || b.members || [];
+    const attendees = Array.isArray(rawParticipants) ? rawParticipants.map(p => ({
+      name: p.name || p.email?.split('@')[0] || 'User',
+      email: p.email || ''
+    })) : [];
 
-  const processedMeetings = calculateOverlaps(bookedMeetings);
+    const meetingDateVal = b.date || b.meeting_date || b.start_date || new Date().toISOString().split('T')[0];
+    const rawStartTime = b.startTime || b.start_time || '09:00:00';
+    const rawEndTime = b.endTime || b.end_time || '10:00:00';
+    
+    const startTimeVal = formatTimeAMPM(rawStartTime);
+    const endTimeVal = formatTimeAMPM(rawEndTime);
+
+    const parsedStart = parseTimeString(startTimeVal);
+    const parsedEnd = parseTimeString(endTimeVal);
+
+    let roomName = 'Physical Room';
+    if (b.room && typeof b.room === 'object') {
+      roomName = b.room.name || b.room.room_name || 'Physical Room';
+    } else if (b.roomName) {
+      roomName = b.roomName;
+    } else if (b.room_name) {
+      roomName = b.room_name;
+    } else if (typeof b.room === 'string' && b.room.trim() !== '') {
+      roomName = b.room;
+    }
+
+    return {
+      ...b,
+      id: b.id || index + 1,
+      date: meetingDateVal,
+      title: b.title || b.meetingTitle || b.topic || 'Untitled Meeting',
+      startTime: startTimeVal,
+      endTime: endTimeVal,
+      startHour: parsedStart ? parsedStart.hour : 9,
+      startMinute: parsedStart ? parsedStart.minute : 0,
+      room: roomName,
+      attendees: attendees,
+    };
+  });
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const filteredMeetings = formattedMeetings.filter((m) => {
+    if (!m.date) return false;
+    const normalizedDate = String(m.date).split('T')[0].trim();
+    return normalizedDate === todayStr;
+  });
+
+  const processedMeetings = calculateOverlaps(filteredMeetings);
 
   const now = new Date();
   const formattedDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
@@ -157,19 +241,12 @@ export default function Calendar({ bookedMeetings = [] }) {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden flex flex-col h-[88vh]">
         
         {/* Header Bar */}
-        <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-slate-900">{formattedDate}</h1>
             <span className="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
-              Today
+              Today's Schedule
             </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-100 p-1 rounded-xl flex text-xs font-semibold text-slate-600">
-              <button className="px-3 py-1.5 bg-white text-slate-900 shadow-xs rounded-lg">Day</button>
-              <button className="px-3 py-1.5 hover:text-slate-900 transition">Week</button>
-              <button className="px-3 py-1.5 hover:text-slate-900 transition">Month</button>
-            </div>
           </div>
         </div>
 
@@ -231,7 +308,7 @@ export default function Calendar({ bookedMeetings = [] }) {
                       <div className="flex flex-col justify-between h-full overflow-hidden">
                         <div>
                           <h2 className="text-xs sm:text-sm font-bold truncate leading-tight">{evt.title}</h2>
-                          <p className="text-[11px] font-semibold opacity-80 mt-0.5 truncate">{evt.time}</p>
+                          <p className="text-[11px] font-semibold opacity-80 mt-0.5 truncate">{evt.time || `${evt.startTime} - ${evt.endTime}`}</p>
                         </div>
 
                         {evt.durationMinute >= 45 && (
@@ -243,23 +320,17 @@ export default function Calendar({ bookedMeetings = [] }) {
                               {evt.location}
                             </span>
 
-                            {/* Attendees Avatar Rendering (Only Initials Badge) */}
+                            {/* Attendees Avatar */}
                             <div className="flex -space-x-1 shrink-0">
-                              {evt.attendees.slice(0, 3).map((person, idx) => {
-                                const name = typeof person === 'object' && person !== null
-                                  ? (person.name || person.fullName || person.title)
-                                  : (typeof person === 'string' ? person : '');
-
-                                return (
-                                  <div
-                                    key={idx}
-                                    className="w-5 h-5 rounded-full ring-1 ring-white bg-slate-800 text-white font-bold text-[9px] flex items-center justify-center shrink-0"
-                                    title={name}
-                                  >
-                                    {getInitials(name)}
-                                  </div>
-                                );
-                              })}
+                              {evt.attendees.slice(0, 3).map((person, idx) => (
+                                <div
+                                  key={idx}
+                                  className="w-5 h-5 rounded-full ring-1 ring-white bg-slate-800 text-white font-bold text-[9px] flex items-center justify-center shrink-0"
+                                  title={person.name}
+                                >
+                                  {getInitials(person.name)}
+                                </div>
+                              ))}
                             </div>
 
                           </div>
