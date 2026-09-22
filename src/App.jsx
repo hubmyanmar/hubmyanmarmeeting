@@ -17,9 +17,10 @@ import { RecordingProvider } from './context/RecordingContext';
 export default function App() {
 
   const [bookedMeetings, setBookedMeetings] = useState([]);
-  
+  const [meetingRooms, setMeetingRooms] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   
+  // 1. Meetings
   useEffect(() => {
     const fetchMeetingsFromDB = async () => {
       try {
@@ -27,7 +28,7 @@ export default function App() {
         
         if (meetingsRes.ok) {
           const dbData = await meetingsRes.json();
-          setBookedMeetings(dbData);
+          setBookedMeetings(Array.isArray(dbData) ? dbData : []);
         } else {
           console.error("Failed to fetch meetings. Status:", meetingsRes.status);
         }
@@ -39,6 +40,26 @@ export default function App() {
     fetchMeetingsFromDB();
   }, []);
 
+  // 2. Meeting Rooms
+  useEffect(() => {
+    const fetchRoomsFromDB = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/v1/meeting-rooms');
+        if (res.ok) {
+          const roomsData = await res.json();
+          setMeetingRooms(Array.isArray(roomsData) ? roomsData : []);
+        } else {
+          console.error("Failed to fetch meeting rooms. Status:", res.status);
+        }
+      } catch (error) {
+        console.error("Error fetching meeting rooms from Database:", error);
+      }
+    };
+
+    fetchRoomsFromDB();
+  }, []);
+
+  // 3. User ယူရန်
   useEffect(() => {
     const fetchUserFromDB = async () => {
       try {
@@ -75,7 +96,7 @@ export default function App() {
           />
           <Route 
             path="meeting-rooms" 
-            element={<MeetingRooms bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
+            element={<MeetingRooms bookedMeetings={bookedMeetings} meetingRooms={meetingRooms} currentUser={currentUser} />} 
           />
           
           <Route path="meeting-records" element={<MeetingRecords />} />

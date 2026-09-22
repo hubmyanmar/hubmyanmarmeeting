@@ -5,8 +5,7 @@ import {
   Filter,
   CheckCircle2,
   Lock,
-  PlayCircle,
-  Loader2
+  PlayCircle
 } from 'lucide-react';
 
 import baganImg from '../assets/Bagan.jpg';
@@ -23,6 +22,7 @@ const normalizeDate = (dateVal) => {
   if (!dateVal) return '';
   return String(dateVal).split('T')[0].trim();
 };
+
 const formatTimeToAMPM = (timeStr) => {
   if (!timeStr || timeStr === 'TBD') return 'TBD';
 
@@ -46,13 +46,9 @@ const formatTimeToAMPM = (timeStr) => {
   return `${formattedHours}:${minutes} ${ampm}`;
 };
 
-export default function MeetingRooms({ bookedMeetings = [], usersList: propsUsersList = [] }) {
+export default function MeetingRooms({ bookedMeetings = [], meetingRooms = [], usersList = [] }) {
   const [filter, setFilter] = useState('all');
   
-  const [baseRooms, setBaseRooms] = useState([]);
-  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
-  const [fetchedUsers, setFetchedUsers] = useState([]);
-
   const [sessions, setSessions] = useState(() => {
     try {
       const saved = localStorage.getItem('meetingSessions');
@@ -62,53 +58,13 @@ export default function MeetingRooms({ bookedMeetings = [], usersList: propsUser
     }
   });
 
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/meeting-rooms'); 
-        
-        if (response.ok) {
-          const dbRooms = await response.json();
-          
-          const defaultImages = [baganImg, yangonImg, inleImg, mandalayImg];
-          const roomsWithImages = dbRooms.map((room, index) => ({
-            ...room,
-            image: room.image || defaultImages[index % defaultImages.length] 
-          }));
+  const defaultImages = [baganImg, yangonImg, inleImg, mandalayImg];
+  const baseRooms = meetingRooms.map((room, index) => ({
+    ...room,
+    image: room.image || defaultImages[index % defaultImages.length] 
+  }));
 
-          setBaseRooms(roomsWithImages);
-        } else {
-          console.error("Failed to fetch rooms");
-        }
-      } catch (error) {
-        console.error("Error fetching rooms from DB:", error);
-      } finally {
-        setIsLoadingRooms(false);
-      }
-    };
-
-    fetchRooms();
-  }, []);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/users');
-        if (response.ok) {
-          const usersData = await response.json();
-          setFetchedUsers(usersData);
-        }
-      } catch (error) {
-        console.error("Error fetching users list:", error);
-      }
-    };
-
-    if (!propsUsersList || propsUsersList.length === 0) {
-      fetchUsers();
-    }
-  }, [propsUsersList]);
-
-  const allUsers = propsUsersList.length > 0 ? propsUsersList : fetchedUsers;
+  const allUsers = usersList;
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -316,92 +272,84 @@ export default function MeetingRooms({ bookedMeetings = [], usersList: propsUser
           </button>
         </div>
 
-        {/* Loading */}
-        {isLoadingRooms ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
-            <p className="text-sm font-medium">အခန်း အချက်အလက်များ ရယူနေပါသည်...</p>
-          </div>
-        ) : (
-          /* Room List Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {filteredRooms.map((room) => (
+        {/* Room List Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {filteredRooms.map((room) => (
+            <div 
+              key={room.id}
+              className={`bg-zinc-800/85 rounded-xl p-5 border transition-all duration-300 flex flex-col justify-between relative overflow-hidden ${room.colorScheme.border} ${room.colorScheme.glow}`}
+            >
               <div 
-                key={room.id}
-                className={`bg-zinc-800/85 rounded-xl p-5 border transition-all duration-300 flex flex-col justify-between relative overflow-hidden ${room.colorScheme.border} ${room.colorScheme.glow}`}
-              >
-                <div 
-                  className="absolute inset-0 z-0 opacity-10 bg-cover bg-center pointer-events-none"
-                  style={{ backgroundImage: `url(${room.image})` }}
-                />
-                <div className="absolute inset-0 z-0 bg-gradient-to-b from-zinc-800/80 via-zinc-800/90 to-zinc-900/95 pointer-events-none" />
+                className="absolute inset-0 z-0 opacity-10 bg-cover bg-center pointer-events-none"
+                style={{ backgroundImage: `url(${room.image})` }}
+              />
+              <div className="absolute inset-0 z-0 bg-gradient-to-b from-zinc-800/80 via-zinc-800/90 to-zinc-900/95 pointer-events-none" />
 
-                {/* Card Header */}
-                <div className="flex justify-between items-start mb-4 relative z-10">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold text-white">{room.name}</h2>
-                      <span className="text-[11px] text-zinc-300 bg-zinc-700/50 border border-zinc-600/50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <MapPin size={11} /> {room.floor || 'Unknown Floor'}
+              {/* Card Header */}
+              <div className="flex justify-between items-start mb-4 relative z-10">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-white">{room.name}</h2>
+                    <span className="text-[11px] text-zinc-300 bg-zinc-700/50 border border-zinc-600/50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <MapPin size={11} /> {room.floor || 'Unknown Floor'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
+                    <Users size={13} className="text-zinc-400" /> Capacity: <span className="text-zinc-200 font-medium">{room.capacity || 'N/A'}</span>
+                  </p>
+                </div>
+
+                <div className={`px-2.5 py-1 rounded-full border text-xs font-bold flex items-center gap-1.5 shadow-sm ${room.colorScheme.badgeBg}`}>
+                  <span className={`w-2 h-2 rounded-full ${room.colorScheme.dot} animate-pulse`}></span>
+                  {room.statusLabel}
+                </div>
+              </div>
+
+              {/* Main Status Box */}
+              <div className="my-2 bg-zinc-900/90 border border-zinc-700/60 rounded-lg p-4 relative z-10 shadow-inner">
+                {room.activeMeeting ? (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                      <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                        <PlayCircle size={14} className="animate-pulse" /> Current Meeting in Progress
+                      </span>
+                      <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
+                        {room.activeMeeting.time}
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
-                      <Users size={13} className="text-zinc-400" /> Capacity: <span className="text-zinc-200 font-medium">{room.capacity || 'N/A'}</span>
-                    </p>
-                  </div>
 
-                  <div className={`px-2.5 py-1 rounded-full border text-xs font-bold flex items-center gap-1.5 shadow-sm ${room.colorScheme.badgeBg}`}>
-                    <span className={`w-2 h-2 rounded-full ${room.colorScheme.dot} animate-pulse`}></span>
-                    {room.statusLabel}
-                  </div>
-                </div>
-
-                {/* Main Status Box */}
-                <div className="my-2 bg-zinc-900/90 border border-zinc-700/60 rounded-lg p-4 relative z-10 shadow-inner">
-                  {room.activeMeeting ? (
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
-                          <PlayCircle size={14} className="animate-pulse" /> Current Meeting in Progress
-                        </span>
-                        <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
-                          {room.activeMeeting.time}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-sm font-bold text-white flex items-center gap-1.5">
-                          <Lock size={13} className="text-red-400" />
-                          {room.activeMeeting.title}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          Organizer: <span className="text-zinc-200 font-semibold">{room.activeMeeting.organizer}</span>
-                        </p>
-                      </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                        <Lock size={13} className="text-red-400" />
+                        {room.activeMeeting.title}
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        Organizer: <span className="text-zinc-200 font-semibold">{room.activeMeeting.organizer}</span>
+                      </p>
                     </div>
-                  ) : (
-                    <div className="py-3 text-center text-xs text-emerald-400 flex flex-col items-center gap-1.5">
-                      <CheckCircle2 size={20} />
-                      <span className="font-semibold text-sm">အခန်းလွတ်နေပါသည် (Available)</span>
-                      <span className="text-zinc-400 text-[11px]">ယခုအချိန်တွင် အစည်းအဝေး မရှိသေးပါ။ ချက်ချင်းအသုံးပြုနိုင်ပါသည်။</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Footer Action */}
-                <div className="flex items-center justify-between border-t border-zinc-700/60 pt-3 mt-2 relative z-10">
-                  <span className="text-[10px] text-zinc-400">
-                    {room.activeMeeting ? 'Do Not Disturb' : 'Ready to use'}
-                  </span>
-                  <button className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow">
-                    View Room
-                  </button>
-                </div>
-
+                  </div>
+                ) : (
+                  <div className="py-3 text-center text-xs text-emerald-400 flex flex-col items-center gap-1.5">
+                    <CheckCircle2 size={20} />
+                    <span className="font-semibold text-sm">အခန်းလွတ်နေပါသည် (Available)</span>
+                    <span className="text-zinc-400 text-[11px]">ယခုအချိန်တွင် အစည်းအဝေး မရှိသေးပါ။ ချက်ချင်းအသုံးပြုနိုင်ပါသည်။</span>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* Card Footer Action */}
+              <div className="flex items-center justify-between border-t border-zinc-700/60 pt-3 mt-2 relative z-10">
+                <span className="text-[10px] text-zinc-400">
+                  {room.activeMeeting ? 'Do Not Disturb' : 'Ready to use'}
+                </span>
+                <button className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow">
+                  View Room
+                </button>
+              </div>
+
+            </div>
+          ))}
+        </div>
 
       </div>
     </div>
