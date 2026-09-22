@@ -5,7 +5,8 @@ import {
   Filter,
   CheckCircle2,
   Lock,
-  PlayCircle
+  PlayCircle,
+  Loader2
 } from 'lucide-react';
 
 import baganImg from '../assets/Bagan.jpg';
@@ -18,8 +19,39 @@ const getTodayDateString = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
+const normalizeDate = (dateVal) => {
+  if (!dateVal) return '';
+  return String(dateVal).split('T')[0].trim();
+};
+const formatTimeToAMPM = (timeStr) => {
+  if (!timeStr || timeStr === 'TBD') return 'TBD';
+
+  if (String(timeStr).toUpperCase().includes('AM') || String(timeStr).toUpperCase().includes('PM')) {
+    return timeStr;
+  }
+
+  const parts = String(timeStr).trim().split(':');
+  if (parts.length < 2) return timeStr;
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+
+  if (isNaN(hours)) return timeStr;
+
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; 
+
+  const formattedHours = String(hours).padStart(2, '0');
+  return `${formattedHours}:${minutes} ${ampm}`;
+};
+
+export default function MeetingRooms({ bookedMeetings = [], usersList: propsUsersList = [] }) {
   const [filter, setFilter] = useState('all');
+  
+  const [baseRooms, setBaseRooms] = useState([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
+  const [fetchedUsers, setFetchedUsers] = useState([]);
 
   const [sessions, setSessions] = useState(() => {
     try {
@@ -29,6 +61,54 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
       return {};
     }
   });
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/meeting-rooms'); 
+        
+        if (response.ok) {
+          const dbRooms = await response.json();
+          
+          const defaultImages = [baganImg, yangonImg, inleImg, mandalayImg];
+          const roomsWithImages = dbRooms.map((room, index) => ({
+            ...room,
+            image: room.image || defaultImages[index % defaultImages.length] 
+          }));
+
+          setBaseRooms(roomsWithImages);
+        } else {
+          console.error("Failed to fetch rooms");
+        }
+      } catch (error) {
+        console.error("Error fetching rooms from DB:", error);
+      } finally {
+        setIsLoadingRooms(false);
+      }
+    };
+
+    fetchRooms();
+  }, []);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/users');
+        if (response.ok) {
+          const usersData = await response.json();
+          setFetchedUsers(usersData);
+        }
+      } catch (error) {
+        console.error("Error fetching users list:", error);
+      }
+    };
+
+    if (!propsUsersList || propsUsersList.length === 0) {
+      fetchUsers();
+    }
+  }, [propsUsersList]);
+
+  const allUsers = propsUsersList.length > 0 ? propsUsersList : fetchedUsers;
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -48,16 +128,9 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
     };
   }, []);
 
-  const baseRooms = [
-    { id: 'md', name: 'MD Room', capacity: '6-8 Seats', floor: '2nd Floor', image: baganImg },
-    { id: 'bagan', name: 'Bagan Room', capacity: '10-12 Seats', floor: '1st Floor', image: yangonImg },
-    { id: 'konebaung', name: 'Konebaung Room', capacity: '4-6 Seats', floor: '2nd Floor', image: inleImg },
-    { id: 'bod', name: 'BOD Home', capacity: '15-20 Seats', floor: '3rd Floor', image: mandalayImg }
-  ];
-
   const convertTimeToMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    const cleaned = timeStr.trim();
+    if (!timeStr) return -1;
+    const cleaned = String(timeStr).trim();
     if (cleaned.toUpperCase().includes('AM') || cleaned.toUpperCase().includes('PM')) {
       const [time, modifier] = cleaned.split(' ');
       let [hours, minutes] = time.split(':').map(Number);
@@ -70,22 +143,60 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
     }
   };
 
+  const getMeetingOrganizer = (data) => {
+    if (!data) return 'Unknown Organizer';
+
+    if (typeof data.organizer === 'object' && data.organizer !== null) {
+      if (data.organizer.name) return data.organizer.name;
+      if (data.organizer.fullName) return data.organizer.fullName;
+    }
+    if (typeof data.user === 'object' && data.user !== null) {
+      if (data.user.name) return data.user.name;
+      if (data.user.fullName) return data.user.fullName;
+    }
+
+    const directName = data.organizer_name || data.creator_name || data.user_name || data.userName;
+    if (directName && isNaN(Number(directName))) return directName;
+
+    if (typeof data.organizer === 'string' && isNaN(Number(data.organizer))) return data.organizer;
+    if (typeof data.host === 'string' && isNaN(Number(data.host))) return data.host;
+
+    const userId = data.organizer || data.created_by || data.user_id || data.user;
+    if (userId) {
+      const matchedUser = allUsers.find(u => String(u.id) === String(userId));
+      if (matchedUser) {
+        return matchedUser.name || matchedUser.fullName || matchedUser.full_name || matchedUser.username;
+      }
+    }
+
+    return userId ? `User #${userId}` : 'Unknown Organizer';
+  };
+
   const todayStr = getTodayDateString();
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   const rooms = baseRooms.map(room => {
-    // ၁။ ဒီအခန်းအတွက် ဒီနေ့မှာရှိတဲ့ Booking များကို စစ်ထုတ်ခြင်း
     const roomBookings = bookedMeetings.filter(b => {
-      const isRoomMatch = b.room?.toLowerCase() === room.name.toLowerCase() || b.roomId === room.id;
-      const isTodayMatch = b.date ? b.date === todayStr : true;
+      const apiRoomName = typeof b.room === 'string' ? b.room : (b.room?.name || '');
+      
+      const isRoomMatch = 
+        (apiRoomName && apiRoomName.toLowerCase() === room.name?.toLowerCase()) || 
+        String(b.roomId) === String(room.id) || 
+        String(b.room) === String(room.id); 
+
+      const rawDate = b.date || b.meetingDate || b.bookingDate || b.start_date;
+      const bookingDate = normalizeDate(rawDate);
+      
+      const isTodayMatch = bookingDate ? (bookingDate === todayStr) : false;
+
       return isRoomMatch && isTodayMatch;
     });
 
     let activeMeetingData = null;
 
     const runningSession = Object.values(sessions).find(
-      s => s.status === 'running' && (s.room?.toLowerCase() === room.name.toLowerCase() || s.originalData?.roomId === room.id)
+      s => s.status === 'running' && (s.room?.toLowerCase() === room.name?.toLowerCase() || s.originalData?.roomId === room.id)
     );
 
     if (runningSession) {
@@ -93,15 +204,21 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
     } else {
       for (const b of roomBookings) {
         const matchingSession = Object.values(sessions).find(
-          s => s.originalData?.title === b.title && s.originalData?.startTime === b.startTime
+          s => s.originalData?.title === b.title && (s.originalData?.startTime === b.startTime || s.originalData?.startTime === b.start_time)
         );
         if (matchingSession?.status === 'stopped') {
           continue;
         }
 
-        const startMin = convertTimeToMinutes(b.startTime || '10:00 AM');
-        const endMin = convertTimeToMinutes(b.endTime || '11:00 AM');
-        if (currentMinutes >= startMin && currentMinutes <= endMin) {
+        const startTime = b.startTime || b.start_time;
+        const endTime = b.endTime || b.end_time;
+
+        if (!startTime || !endTime) continue;
+
+        const startMin = convertTimeToMinutes(startTime);
+        const endMin = convertTimeToMinutes(endTime);
+
+        if (startMin >= 0 && endMin >= 0 && currentMinutes >= startMin && currentMinutes <= endMin) {
           activeMeetingData = b;
           break;
         }
@@ -110,18 +227,19 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
 
     const isOccupiedNow = !!activeMeetingData;
 
+    const rawStart = activeMeetingData?.startTime || activeMeetingData?.start_time;
+    const rawEnd = activeMeetingData?.endTime || activeMeetingData?.end_time;
+    const startTimeDisplay = formatTimeToAMPM(rawStart);
+    const endTimeDisplay = formatTimeToAMPM(rawEnd);
+
     return {
       ...room,
       status: isOccupiedNow ? 'ongoing' : 'available',
       statusLabel: isOccupiedNow ? '🔴 In Use (Active Now)' : '🟢 Available Now',
       activeMeeting: isOccupiedNow ? {
-        title: activeMeetingData.title || activeMeetingData.meetingName || 'Meeting',
-        organizer: activeMeetingData.organizer || 
-                   activeMeetingData.host || 
-                   currentUser?.fullName || 
-                   currentUser?.name || 
-                   'Unknown Organizer',
-        time: `${activeMeetingData.startTime || 'TBD'} - ${activeMeetingData.endTime || 'TBD'}`
+        title: activeMeetingData.title || activeMeetingData.meetingName || activeMeetingData.name || 'Meeting',
+        organizer: getMeetingOrganizer(activeMeetingData),
+        time: `${startTimeDisplay} - ${endTimeDisplay}`
       } : null,
       colorScheme: isOccupiedNow ? {
         border: 'border-red-500/50',
@@ -157,7 +275,6 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
             <p className="text-zinc-400 text-xs md:text-sm mt-1">လက်ရှိအချိန်တွင် အခန်းများ အား/မအား တိုက်ရိုက်ကြည့်ရှုရန်</p>
           </div>
 
-          {/* Quick Stats */}
           <div className="flex items-center gap-3">
             <div className="bg-zinc-800/90 border border-zinc-700/80 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -199,84 +316,92 @@ export default function MeetingRooms({ bookedMeetings = [], currentUser }) {
           </button>
         </div>
 
-        {/* Room List Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filteredRooms.map((room) => (
-            <div 
-              key={room.id}
-              className={`bg-zinc-800/85 rounded-xl p-5 border transition-all duration-300 flex flex-col justify-between relative overflow-hidden ${room.colorScheme.border} ${room.colorScheme.glow}`}
-            >
+        {/* Loading */}
+        {isLoadingRooms ? (
+          <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
+            <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
+            <p className="text-sm font-medium">အခန်း အချက်အလက်များ ရယူနေပါသည်...</p>
+          </div>
+        ) : (
+          /* Room List Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredRooms.map((room) => (
               <div 
-                className="absolute inset-0 z-0 opacity-10 bg-cover bg-center pointer-events-none"
-                style={{ backgroundImage: `url(${room.image})` }}
-              />
-              <div className="absolute inset-0 z-0 bg-gradient-to-b from-zinc-800/80 via-zinc-800/90 to-zinc-900/95 pointer-events-none" />
+                key={room.id}
+                className={`bg-zinc-800/85 rounded-xl p-5 border transition-all duration-300 flex flex-col justify-between relative overflow-hidden ${room.colorScheme.border} ${room.colorScheme.glow}`}
+              >
+                <div 
+                  className="absolute inset-0 z-0 opacity-10 bg-cover bg-center pointer-events-none"
+                  style={{ backgroundImage: `url(${room.image})` }}
+                />
+                <div className="absolute inset-0 z-0 bg-gradient-to-b from-zinc-800/80 via-zinc-800/90 to-zinc-900/95 pointer-events-none" />
 
-              {/* Card Header */}
-              <div className="flex justify-between items-start mb-4 relative z-10">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold text-white">{room.name}</h2>
-                    <span className="text-[11px] text-zinc-300 bg-zinc-700/50 border border-zinc-600/50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                      <MapPin size={11} /> {room.floor}
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
-                    <Users size={13} className="text-zinc-400" /> Capacity: <span className="text-zinc-200 font-medium">{room.capacity}</span>
-                  </p>
-                </div>
-
-                <div className={`px-2.5 py-1 rounded-full border text-xs font-bold flex items-center gap-1.5 shadow-sm ${room.colorScheme.badgeBg}`}>
-                  <span className={`w-2 h-2 rounded-full ${room.colorScheme.dot} animate-pulse`}></span>
-                  {room.statusLabel}
-                </div>
-              </div>
-
-              {/* Main Status Box */}
-              <div className="my-2 bg-zinc-900/90 border border-zinc-700/60 rounded-lg p-4 relative z-10 shadow-inner">
-                {room.activeMeeting ? (
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                      <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
-                        <PlayCircle size={14} className="animate-pulse" /> Current Meeting in Progress
-                      </span>
-                      <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
-                        {room.activeMeeting.time}
+                {/* Card Header */}
+                <div className="flex justify-between items-start mb-4 relative z-10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-white">{room.name}</h2>
+                      <span className="text-[11px] text-zinc-300 bg-zinc-700/50 border border-zinc-600/50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <MapPin size={11} /> {room.floor || 'Unknown Floor'}
                       </span>
                     </div>
+                    <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
+                      <Users size={13} className="text-zinc-400" /> Capacity: <span className="text-zinc-200 font-medium">{room.capacity || 'N/A'}</span>
+                    </p>
+                  </div>
 
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-white flex items-center gap-1.5">
-                        <Lock size={13} className="text-red-400" />
-                        {room.activeMeeting.title}
-                      </p>
-                      <p className="text-xs text-zinc-400">
-                        Organizer: <span className="text-zinc-200 font-semibold">{room.activeMeeting.organizer}</span>
-                      </p>
+                  <div className={`px-2.5 py-1 rounded-full border text-xs font-bold flex items-center gap-1.5 shadow-sm ${room.colorScheme.badgeBg}`}>
+                    <span className={`w-2 h-2 rounded-full ${room.colorScheme.dot} animate-pulse`}></span>
+                    {room.statusLabel}
+                  </div>
+                </div>
+
+                {/* Main Status Box */}
+                <div className="my-2 bg-zinc-900/90 border border-zinc-700/60 rounded-lg p-4 relative z-10 shadow-inner">
+                  {room.activeMeeting ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                        <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                          <PlayCircle size={14} className="animate-pulse" /> Current Meeting in Progress
+                        </span>
+                        <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
+                          {room.activeMeeting.time}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                          <Lock size={13} className="text-red-400" />
+                          {room.activeMeeting.title}
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          Organizer: <span className="text-zinc-200 font-semibold">{room.activeMeeting.organizer}</span>
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="py-3 text-center text-xs text-emerald-400 flex flex-col items-center gap-1.5">
-                    <CheckCircle2 size={20} />
-                    <span className="font-semibold text-sm">အခန်းလွတ်နေပါသည် (Available)</span>
-                    <span className="text-zinc-400 text-[11px]">ယခုအချိန်တွင် အစည်းအဝေး မရှိသေးပါ။ ချက်ချင်းအသုံးပြုနိုင်ပါသည်။</span>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="py-3 text-center text-xs text-emerald-400 flex flex-col items-center gap-1.5">
+                      <CheckCircle2 size={20} />
+                      <span className="font-semibold text-sm">အခန်းလွတ်နေပါသည် (Available)</span>
+                      <span className="text-zinc-400 text-[11px]">ယခုအချိန်တွင် အစည်းအဝေး မရှိသေးပါ။ ချက်ချင်းအသုံးပြုနိုင်ပါသည်။</span>
+                    </div>
+                  )}
+                </div>
 
-              {/* Card Footer Action */}
-              <div className="flex items-center justify-between border-t border-zinc-700/60 pt-3 mt-2 relative z-10">
-                <span className="text-[10px] text-zinc-400">
-                  {room.activeMeeting ? 'Do Not Disturb' : 'Ready to use'}
-                </span>
-                <button className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow">
-                  View Room
-                </button>
-              </div>
+                {/* Card Footer Action */}
+                <div className="flex items-center justify-between border-t border-zinc-700/60 pt-3 mt-2 relative z-10">
+                  <span className="text-[10px] text-zinc-400">
+                    {room.activeMeeting ? 'Do Not Disturb' : 'Ready to use'}
+                  </span>
+                  <button className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow">
+                    View Room
+                  </button>
+                </div>
 
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
       </div>
     </div>

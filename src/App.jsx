@@ -34,7 +34,26 @@ export default function App() {
       return null;
     }
   });
+  
+  useEffect(() => {
+    const fetchMeetingsFromDB = async () => {
+      try {
+        const meetingsRes = await fetch('http://127.0.0.1:8000/api/v1/meetings'); 
+        
+        if (meetingsRes.ok) {
+          const dbData = await meetingsRes.json();
+          setBookedMeetings(dbData);
+        } else {
+          console.error("Failed to fetch meetings. Status:", meetingsRes.status);
+        }
+      } catch (error) {
+        console.error("Error fetching meetings from Database:", error);
+      }
+    };
 
+    fetchMeetingsFromDB();
+  }, []);
+  
   useEffect(() => {
     try {
       localStorage.setItem('bookedMeetings', JSON.stringify(bookedMeetings));
@@ -43,14 +62,13 @@ export default function App() {
     }
   }, [bookedMeetings]);
 
-  const handleBookMeeting = (newMeeting) => {
+  const handleBookMeeting = async (newMeeting) => {
     setBookedMeetings((prev) => [...prev, newMeeting]);
   };
 
   return (
     <RecordingProvider>
       <Routes>
-        
         <Route path="/" element={<AuthCard setCurrentUser={setCurrentUser} />} />
         <Route path="/dashboard" element={<Dashboard currentUser={currentUser} />}>
           <Route index element={<DashboardHome bookedMeetings={bookedMeetings} currentUser={currentUser} />} />
