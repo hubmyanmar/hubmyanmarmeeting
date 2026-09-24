@@ -17,7 +17,6 @@ const formatDisplayValue = (val, fallback = '') => {
 export default function Reports({ meetingSessions = {} }) {
   const currentDate = new Date();
   
-  // Initial State: 1-based Month Index (Jan = 1, Sep = 9, Dec = 12)
   const [filter, setFilter] = useState({
     view: 'month',
     month: (currentDate.getMonth() + 1).toString(), 
