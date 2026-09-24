@@ -1,77 +1,80 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 
-export default function TopRooms({ filter }) {
-  const [roomCounts, setRoomCounts] = useState({});
+export default function TopRooms({ filter, meetingSessions = {}, bookedMeetings = [], actions = [] }) {
+  
+  const dynamicRooms = useMemo(() => {
+    const counts = {};
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-  useEffect(() => {
-    const calculateTopRooms = () => {
-      try {
-        const savedSessions = localStorage.getItem('meetingSessions');
-        const sessions = savedSessions ? JSON.parse(savedSessions) : {};
+    const targetYear = filter?.year ? parseInt(filter.year, 10) : currentYear;
+    let targetMonth = currentMonth;
 
-        const counts = {};
-
-        Object.keys(sessions).forEach(meetingId => {
-          const session = sessions[meetingId];
-          if (session && (session.status === 'stopped' || session.status === 'completed' || session.status === 'running')) {
-            
-            const sessionDate = new Date(session.startedAt || session.date || Date.now());
-            const sessionYear = sessionDate.getFullYear();
-            const sessionMonth = sessionDate.getMonth();
-            
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth();
-
-            let isMatch = false;
-            if (filter.view === 'year') {
-              isMatch = (sessionYear === filter.year);
-            } 
-            else if (filter.view === 'month') {
-              if (filter.month === 'this_month') {
-                isMatch = (sessionYear === currentYear && sessionMonth === currentMonth);
-              } else if (filter.month === 'last_month') {
-                let lastM = currentMonth - 1;
-                let lastY = currentYear;
-                if (lastM < 0) { lastM = 11; lastY -= 1; }
-                isMatch = (sessionYear === lastY && sessionMonth === lastM);
-              } else {
-                isMatch = (sessionYear === filter.year && sessionMonth === parseInt(filter.month));
-              }
-            }
-            if (isMatch) {
-              const roomName = session.room || 'Unknown Room';
-              counts[roomName] = (counts[roomName] || 0) + 1;
-            }
-          }
-        });
-
-        setRoomCounts(counts);
-      } catch (e) {
-        console.error("Error calculating top rooms:", e);
+    if (filter?.month) {
+      if (filter.month === 'this_month') {
+        targetMonth = currentMonth;
+      } else if (filter.month === 'last_month') {
+        targetMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      } else {
+        const parsedM = parseInt(filter.month, 10);
+        targetMonth = parsedM >= 1 && parsedM <= 12 ? parsedM - 1 : parsedM;
       }
-    };
+    }
+    const roomMapping = {};
+    const rawList = actions.length > 0 ? actions : bookedMeetings;
+    
+    rawList.forEach(item => {
+      if (!item) return;
+      const mId = item.id || item.meeting_id || item.meetingId;
+      const rName = item.room || item.room_name || item.roomName;
+      if (mId && rName) {
+        roomMapping[mId] = rName;
+        roomMapping[String(mId)] = rName;
+      }
+    });
+    Object.entries(meetingSessions).forEach(([meetingId, session]) => {
+      if (!session) return;
 
-    calculateTopRooms();
-    window.addEventListener('storage', calculateTopRooms);
-    window.addEventListener('sync-meeting-sessions', calculateTopRooms);
+      const status = String(session.status || '').toLowerCase().trim();
+      if (['stopped', 'completed', 'running'].includes(status)) {
+        
+        const rawDate = session.startedAt || session.date || session.createdAt || Date.now();
+        const d = new Date(rawDate);
+        if (isNaN(d.getTime())) return;
 
-    return () => {
-      window.removeEventListener('storage', calculateTopRooms);
-      window.removeEventListener('sync-meeting-sessions', calculateTopRooms);
-    };
-  }, [filter]);
+        const sessionYear = d.getFullYear();
+        const sessionMonth = d.getMonth();
 
-  const countsArray = Object.values(roomCounts);
-  const maxCount = countsArray.length > 0 ? Math.max(...countsArray) : 0;
+        const isMatch = filter?.view === 'year' 
+          ? sessionYear === targetYear 
+          : sessionYear === targetYear && sessionMonth === targetMonth;
 
-  const dynamicRooms = Object.entries(roomCounts)
-    .map(([name, count]) => ({
-      name,
-      count,
-      width: maxCount > 0 ? `${Math.round((count / maxCount) * 100)}%` : '0%'
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 4);
+        if (isMatch) {
+          const roomName = 
+            session.room || 
+            session.room_name || 
+            roomMapping[meetingId] || 
+            roomMapping[String(meetingId)] || 
+            'Unknown Room';
+
+          counts[roomName] = (counts[roomName] || 0) + 1;
+        }
+      }
+    });
+
+    const countsArray = Object.values(counts);
+    const maxCount = countsArray.length > 0 ? Math.max(...countsArray) : 0;
+
+    return Object.entries(counts)
+      .map(([name, count]) => ({
+        name,
+        count,
+        width: maxCount > 0 ? `${Math.round((count / maxCount) * 100)}%` : '0%'
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  }, [filter, meetingSessions, bookedMeetings, actions]);
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
@@ -93,7 +96,7 @@ export default function TopRooms({ filter }) {
           ))
         ) : (
           <div className="text-center py-6 text-xs text-gray-400">
-            No meetings found for {filter.view === 'year' ? filter.year : 'this period'}
+            No meetings found for {filter?.view === 'year' ? filter?.year : 'this period'}
           </div>
         )}
       </div>
