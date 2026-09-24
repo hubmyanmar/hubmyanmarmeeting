@@ -130,7 +130,6 @@ export default function App() {
           <Route path="action-items" element={<ActionItem />} />
           <Route path="calendar" element={<Calendar bookedMeetings={bookedMeetings} />} />
           
-          {/* Reports ထဲသို့ meetingSessions ကို Prop အဖြစ် ပို့ပေးထားပါသည် */}
           <Route path="reports" element={<Reports bookedMeetings={bookedMeetings} meetingSessions={meetingSessions} />} />
           
           <Route path="settings" element={<Settings />} />

@@ -13,11 +13,15 @@ const formatDisplayValue = (val, fallback = '') => {
   }
   return String(val);
 };
+
 export default function Reports({ meetingSessions = {} }) {
+  const currentDate = new Date();
+  
+  // Initial State: 1-based Month Index (Jan = 1, Sep = 9, Dec = 12)
   const [filter, setFilter] = useState({
     view: 'month',
-    month: new Date().getMonth().toString(),
-    year: new Date().getFullYear()
+    month: (currentDate.getMonth() + 1).toString(), 
+    year: currentDate.getFullYear()
   });
 
   const [filteredMeetings, setFilteredMeetings] = useState([]);
@@ -27,23 +31,56 @@ export default function Reports({ meetingSessions = {} }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const queryParams = new URLSearchParams({
-          view: filter.view,
-          year: filter.year,
-          ...(filter.view === 'month' && { month: filter.month })
-        });
+        const queryParams = new URLSearchParams();
+        if (filter.view) queryParams.append('view', filter.view);
+        if (filter.year) queryParams.append('year', filter.year);
+        if (filter.view === 'month' && filter.month) {
+          queryParams.append('month', filter.month);
+        }
+
         const resMeetings = await fetch(`http://127.0.0.1:8000/api/v1/meetings?${queryParams.toString()}`);
+        
         if (resMeetings.ok) {
           const rawMeetings = await resMeetings.json();
-          const formatted = Array.isArray(rawMeetings)
-            ? rawMeetings.map((m) => ({
-                ...m,
-                title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
-                room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
-                date: formatDisplayValue(m.date || m.meeting_date || m.startTime || m.startedAt)
-              }))
-            : [];
-          setFilteredMeetings(formatted);
+          
+          if (Array.isArray(rawMeetings)) {
+            const formatted = rawMeetings.map((m) => ({
+              ...m,
+              title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
+              room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
+              date: formatDisplayValue(m.meeting_date || m.date || m.startTime || m.startedAt)
+            }));
+            const finalFiltered = formatted.filter((m) => {
+              if (!m.date) return false;
+
+              let mYear, mMonth;
+              if (typeof m.date === 'string' && m.date.includes('-')) {
+                const datePart = m.date.split('T')[0];
+                const parts = datePart.split('-');
+                mYear = parseInt(parts[0], 10);
+                mMonth = parseInt(parts[1], 10);
+              } else {
+                const parsedDate = new Date(m.date);
+                if (isNaN(parsedDate.getTime())) return false;
+                mYear = parsedDate.getFullYear();
+                mMonth = parsedDate.getMonth() + 1; 
+              }
+
+              if (isNaN(mYear) || isNaN(mMonth)) return false;
+
+              const selectedYear = parseInt(filter.year, 10);
+              const selectedMonth = parseInt(filter.month, 10);
+
+              if (filter.view === 'year') {
+                return mYear === selectedYear;
+              }
+              return mYear === selectedYear && mMonth === selectedMonth;
+            });
+
+            setFilteredMeetings(finalFiltered);
+          } else {
+            setFilteredMeetings([]);
+          }
         }
       } catch (error) {
         console.error('Error fetching report data:', error);
