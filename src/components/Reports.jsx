@@ -114,7 +114,10 @@ export default function Reports({ meetingSessions = {} }) {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TopRooms bookedMeetings={filteredMeetings} filter={filter} />
-            <OverdueActions bookedMeetings={filteredMeetings} />
+            <OverdueActions 
+              bookedMeetings={filteredMeetings} 
+              meetingSessions={meetingSessions} 
+            />
           </div>
         </>
       )}

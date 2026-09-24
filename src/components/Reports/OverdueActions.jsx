@@ -1,54 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SquareCheck, ArrowRight, ArrowDown } from 'lucide-react';
 
-const parseTimeToMinutes = (timeStr) => {
-  if (!timeStr) return 0;
-  const upper = timeStr.trim().toUpperCase();
-  let hours = 0, minutes = 0;
-  if (upper.includes('AM') || upper.includes('PM')) {
-    const isPM = upper.includes('PM');
-    const isAM = upper.includes('AM');
-    const [h, m] = upper.replace('AM', '').replace('PM', '').trim().split(':');
-    hours = parseInt(h, 10) || 0;
-    minutes = parseInt(m, 10) || 0;
-    if (isPM && hours < 12) hours += 12;
-    if (isAM && hours === 12) hours = 0;
-  } else {
-    const [h, m] = upper.split(':');
-    hours = parseInt(h, 10) || 0;
-    minutes = parseInt(m, 10) || 0;
-  }
-  return hours * 60 + minutes;
-};
-
-export default function OverdueActions({ bookedMeetings = [] }) {
+export default function OverdueActions({ bookedMeetings = [], meetingSessions = {} }) {
   const [showAll, setShowAll] = useState(false);
 
-  const now = new Date();
+  const safeSessions = useMemo(() => {
+    if (!meetingSessions) return {};
+    if (meetingSessions.data && typeof meetingSessions.data === 'object') {
+      return meetingSessions.data;
+    }
+    return meetingSessions;
+  }, [meetingSessions]);
 
-  const overdueItems = bookedMeetings.map((meeting, index) => {
-    if (!meeting.date) return null;
+  const getSessionForMeeting = (m) => {
+    if (!m || !safeSessions) return null;
+    const mId = m.id !== undefined && m.id !== null ? String(m.id) : null;
+    const mMeetingId = m.meeting_id !== undefined && m.meeting_id !== null ? String(m.meeting_id) : null;
 
-    const meetingDate = new Date(meeting.date);
-    const timeStr = meeting.endTime || meeting.startTime || "09:00 AM";
-    const totalMinutes = parseTimeToMinutes(timeStr);
+    if (Array.isArray(safeSessions)) {
+      return safeSessions.find(s => {
+        const sId = s.id !== undefined && s.id !== null ? String(s.id) : null;
+        const sMeetingId = s.meeting_id !== undefined && s.meeting_id !== null ? String(s.meeting_id) : null;
+        return (mId && (sId === mId || sMeetingId === mId)) || (mMeetingId && sId === mMeetingId);
+      }) || null;
+    }
+
+    if (typeof safeSessions === 'object') {
+      if (mId && safeSessions[mId]) return safeSessions[mId];
+      if (mMeetingId && safeSessions[mMeetingId]) return safeSessions[mMeetingId];
+    }
+
+    return null;
+  };
+  const isMeetingCompleted = (m) => {
+    if (!m) return false;
+    const session = getSessionForMeeting(m);
     
-    meetingDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
+    const sessionStatus = String(session?.status || '').toLowerCase().trim();
+    const meetingStatus = String(m?.status || m?.meeting_status || '').toLowerCase().trim();
+    const isCompletedFlag = session?.is_completed || m?.is_completed || m?.completed;
 
-    const diffMs = now - meetingDate;
-    if (diffMs <= 0) return null;
+    const completedKeywords = [
+      'stopped', 'completed', 'complete', 'done', 
+      'ended', 'finished', 'closed', 'cancelled', 'canceled'
+    ];
 
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const overdueText = diffDays === 0 ? 'Due today' : `${diffDays} day${diffDays > 1 ? 's' : ''} overdue`;
+    if (completedKeywords.includes(sessionStatus) || completedKeywords.includes(meetingStatus) || isCompletedFlag) {
+      return true;
+    }
 
-    return {
-      id: meeting.id || index,
-      title: meeting.title || 'Untitled Meeting',
-      company: meeting.company || 'Unspecified',
-      dept: meeting.room || 'General',
-      overdue: overdueText,
-    };
-  }).filter(Boolean);
+    const actualDur = session?.actual_duration ?? m?.actual_duration;
+    if (actualDur !== undefined && actualDur !== null && Number(actualDur) > 0) return true;
+
+    if (session?.actual_ended_at || m?.actual_ended_at) return true;
+
+    return false;
+  };
+  const overdueItems = useMemo(() => {
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    const meetingsList = Array.isArray(bookedMeetings) ? bookedMeetings : [];
+
+    return meetingsList.flatMap((meeting, index) => {
+      if (!meeting) return [];
+
+      const actionsList = Array.isArray(meeting.actions) && meeting.actions.length > 0 
+        ? meeting.actions 
+        : [meeting];
+
+      return actionsList.map((action, actIndex) => {
+        if (isMeetingCompleted(action) || isMeetingCompleted(meeting)) return null;
+        const rawDate = action?.dueDate || action?.date || meeting?.date || meeting?.meeting_date;
+        if (!rawDate) return null;
+
+        const itemDate = new Date(rawDate);
+        if (isNaN(itemDate.getTime())) return null;
+
+        itemDate.setHours(0, 0, 0, 0);
+        const diffTime = todayMidnight.getTime() - itemDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays <= 0) return null;
+
+        const overdueText = `${diffDays} day${diffDays > 1 ? 's' : ''} overdue`;
+
+        return {
+          id: action?.id || `${meeting?.id || index}-${actIndex}`,
+          title: action?.title || action?.action_title || meeting?.title || 'Untitled Action',
+          company: action?.company || meeting?.company || meeting?.company_name || 'Unspecified',
+          dept: action?.department || meeting?.department || meeting?.room || 'General',
+          overdue: overdueText,
+          diffDays: diffDays,
+        };
+      });
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.diffDays - a.diffDays);
+  }, [bookedMeetings, safeSessions]);
 
   const displayedItems = showAll ? overdueItems : overdueItems.slice(0, 3);
 
@@ -64,7 +112,7 @@ export default function OverdueActions({ bookedMeetings = [] }) {
         
         <div className="space-y-3">
           {overdueItems.length === 0 ? (
-            <p className="text-gray-400 text-xs text-center py-6">No overdue meetings at the moment</p>
+            <p className="text-gray-400 text-xs text-center py-6">No overdue actions at the moment</p>
           ) : (
             displayedItems.map((item) => (
               <div key={item.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
