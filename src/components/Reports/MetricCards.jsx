@@ -1,290 +1,180 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useMemo, useEffect } from 'react';
+import { TrendingUp, AlertCircle, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 
-const parseTimeToMinutes = (timeStr) => {
-  if (!timeStr) return 0;
-  const upper = timeStr.trim().toUpperCase();
-  let hours = 0, minutes = 0;
-  if (upper.includes('AM') || upper.includes('PM')) {
-    const isPM = upper.includes('PM');
-    const isAM = upper.includes('AM');
-    const [h, m] = upper.replace('AM', '').replace('PM', '').trim().split(':');
-    hours = parseInt(h, 10) || 0;
-    minutes = parseInt(m, 10) || 0;
-    if (isPM && hours < 12) hours += 12;
-    if (isAM && hours === 12) hours = 0;
-  } else {
-    const [h, m] = upper.split(':');
-    hours = parseInt(h, 10) || 0;
-    minutes = parseInt(m, 10) || 0;
-  }
-  return hours * 60 + minutes;
-};
-
-export default function MetricCards({ filter }) {
-  const [metrics, setMetrics] = useState({
-    meetings: { current: 0, diffPct: 0, isUp: true },
-    hours: { current: 0, diffPct: 0, isUp: true },
-    completedPct: { current: 0, diffPct: 0, isUp: true },
-    overdue: { current: 0, diffCount: 0, isUp: false }
-  });
-
+export default function MetricCards({ filter, bookedMeetings = [], meetingSessions = {} }) {
   const compareLabel = filter?.view === 'year' ? 'last year' : 'last month';
-
   useEffect(() => {
-    const calculateMetrics = () => {
-      try {
-        const now = new Date();
-        const viewType = filter?.view || 'month'; 
+    // console.log("Meeting Sessions Data: ", meetingSessions);
+  }, [meetingSessions]);
+  const safeSessions = useMemo(() => {
+    if (!meetingSessions) return {};
+    if (meetingSessions.data && typeof meetingSessions.data === 'object') {
+      return meetingSessions.data;
+    }
+    return meetingSessions;
+  }, [meetingSessions]);
+
+  const getSessionForMeeting = (m) => {
+    if (!m || !safeSessions) return null;
+    const mId = m.id !== undefined && m.id !== null ? String(m.id) : null;
+    const mMeetingId = m.meeting_id !== undefined && m.meeting_id !== null ? String(m.meeting_id) : null;
+
+    if (Array.isArray(safeSessions)) {
+      return safeSessions.find(s => {
+        const sId = s.id !== undefined && s.id !== null ? String(s.id) : null;
+        const sMeetingId = s.meeting_id !== undefined && s.meeting_id !== null ? String(s.meeting_id) : null;
+        return (mId && (sId === mId || sMeetingId === mId)) || (mMeetingId && sId === mMeetingId);
+      }) || null;
+    }
+
+    if (typeof safeSessions === 'object') {
+      if (mId && safeSessions[mId]) return safeSessions[mId];
+      if (mMeetingId && safeSessions[mMeetingId]) return safeSessions[mMeetingId];
+    }
+
+    return null;
+  };
+
+  const isMeetingCompleted = (m) => {
+    if (!m) return false;
+    const session = getSessionForMeeting(m);
+    
+    const sessionStatus = String(session?.status || '').toLowerCase().trim();
+    const meetingStatus = String(m?.status || m?.meeting_status || '').toLowerCase().trim();
+    const isCompletedFlag = session?.is_completed || m?.is_completed || m?.completed;
+
+    const completedKeywords = ['stopped', 'completed', 'complete', 'done', 'ended', 'finished', 'closed'];
+
+    if (completedKeywords.includes(sessionStatus) || completedKeywords.includes(meetingStatus) || isCompletedFlag) {
+      return true;
+    }
+
+    const actualDur = session?.actual_duration ?? m?.actual_duration;
+    if (actualDur !== undefined && actualDur !== null && Number(actualDur) > 0) return true;
+
+    if (session?.actual_ended_at || m?.actual_ended_at) return true;
+
+    return false;
+  };
+  const getMeetingHours = (m) => {
+    if (m.start_time && m.end_time) {
+      const startParts = String(m.start_time).split(':');
+      const endParts = String(m.end_time).split(':');
+
+      if (startParts.length >= 2 && endParts.length >= 2) {
+        const startH = parseInt(startParts[0], 10);
+        const startM = parseInt(startParts[1], 10);
         
-        let targetYear = now.getFullYear();
-        let targetMonth = now.getMonth();
-        let prevYear = targetYear;
-        let prevMonth = targetMonth - 1;
+        const endH = parseInt(endParts[0], 10);
+        const endM = parseInt(endParts[1], 10);
 
-        if (viewType === 'month') {
-          if (filter?.month === 'last_month') {
-            targetMonth = now.getMonth() - 1;
-            if (targetMonth < 0) { targetMonth = 11; targetYear -= 1; }
-          } else if (filter?.month !== 'this_month' && filter?.month !== undefined) {
-            const parsedM = parseInt(filter.month, 10);
-            targetMonth = parsedM > 11 ? parsedM - 1 : parsedM;
-            if (filter.year) targetYear = filter.year;
-          }
-          
-          prevMonth = targetMonth - 1;
-          prevYear = targetYear;
-          if (prevMonth < 0) { prevMonth = 11; prevYear -= 1; }
+        const startTotalHours = startH + (startM / 60);
+        const endTotalHours = endH + (endM / 60);
 
-        } else if (viewType === 'year') {
-          if (filter?.year) targetYear = filter.year;
-          prevYear = targetYear - 1;
+        let hrs = endTotalHours - startTotalHours;
+        
+        if (hrs < 0) {
+          hrs += 24; 
         }
 
-        const isTargetPeriod = (y, m) => {
-          if (viewType === 'year') return y === targetYear;
-          return y === targetYear && m === targetMonth;
-        };
-
-        const isPrevPeriod = (y, m) => {
-          if (viewType === 'year') return y === prevYear;
-          return y === prevYear && m === prevMonth;
-        };
-
-        const rawSessions = localStorage.getItem('meetingSessions');
-        const sessions = rawSessions ? JSON.parse(rawSessions) : {};
-        const sessionsArray = Array.isArray(sessions) ? sessions : Object.values(sessions);
-        const actionKeys = ['actionItems', 'meetingActions', 'actions', 'tasks', 'meetingSessions', 'bookedMeetings'];
-        let rawActionsArray = [];
-        
-        actionKeys.forEach((key) => {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw);
-              const items = Array.isArray(parsed) ? parsed : Object.values(parsed || {});
-              rawActionsArray = [...rawActionsArray, ...items];
-            } catch (e) {
-              console.error(`Error parsing ${key}:`, e);
-            }
-          }
-        });
-
-        let actionsArray = [];
-        rawActionsArray.forEach((item) => {
-          if (!item) return;
-          if (Array.isArray(item.actionItems)) actionsArray.push(...item.actionItems);
-          else if (Array.isArray(item.actions)) actionsArray.push(...item.actions);
-          else actionsArray.push(item);
-        });
-        
-        let currMeetings = 0, prevMeetings = 0;
-        let currHours = 0, prevHours = 0;
-
-        const getMeetingHours = (s) => {
-          if (!s) return 0;
-          if (s.durationHours !== undefined && s.durationHours !== null) return Number(s.durationHours) || 0;
-          if (s.totalHours !== undefined && s.totalHours !== null) return Number(s.totalHours) || 0;
-          if (s.hours !== undefined && s.hours !== null) return Number(s.hours) || 0;
-          if (s.durationMinutes !== undefined && s.durationMinutes !== null) return (Number(s.durationMinutes) || 0) / 60;
-
-          if (typeof s.duration === 'string') {
-            if (s.duration.includes(':')) {
-              const parts = s.duration.split(':').map(Number);
-              if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                return parts[0] + parts[1] / 60;
-              }
-            }
-            const num = parseFloat(s.duration);
-            if (!isNaN(num)) return num > 12 ? num / 60 : num;
-          }
-
-          if (typeof s.duration === 'number' && !isNaN(s.duration)) {
-            if (s.duration > 10000) return s.duration / (1000 * 60 * 60);
-            return s.duration > 12 ? s.duration / 60 : s.duration; 
-          }
-
-          const startDateVal = s.startedAt || s.startTime || s.createdAt || s.date;
-          const endDateVal = s.endedAt || s.endTime || s.completedAt;
-
-          if (startDateVal && endDateVal) {
-            let start = new Date(startDateVal);
-            let end = new Date(endDateVal);
-
-            if (isNaN(start.getTime()) && s.date && s.startTime) {
-              start = new Date(`${s.date} ${s.startTime}`);
-            }
-            if (isNaN(end.getTime()) && s.date && s.endTime) {
-              end = new Date(`${s.date} ${s.endTime}`);
-            }
-
-            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
-              return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-            }
-          }
-          return 0;
-        };
-
-        sessionsArray.forEach((s) => {
-          const d = new Date(s.startedAt || s.startTime || s.date || s.createdAt || s.timestamp);
-          if (isNaN(d.getTime())) return;
-
-          const y = d.getFullYear();
-          const m = d.getMonth();
-          const durationHours = getMeetingHours(s);
-
-          if (isTargetPeriod(y, m)) {
-            currMeetings += 1;
-            currHours += durationHours;
-          } else if (isPrevPeriod(y, m)) {
-            prevMeetings += 1;
-            prevHours += durationHours;
-          }
-        });
-        
-        let currTotalAct = 0, currCompAct = 0, currOverdueAct = 0;
-        let prevTotalAct = 0, prevCompAct = 0, prevOverdueAct = 0;
-
-        const uniqueActionsMap = new Map();
-        actionsArray.forEach((a) => {
-          if (!a) return;
-          const id = a.id || a._id || JSON.stringify(a);
-          if (!uniqueActionsMap.has(id)) uniqueActionsMap.set(id, a);
-        });
-
-        uniqueActionsMap.forEach((a) => {
-          const d = new Date(a.date || a.dueDate || a.createdAt || a.startedAt || a.timestamp);
-          if (isNaN(d.getTime())) return;
-
-          const y = d.getFullYear();
-          const m = d.getMonth();
-
-          const statusStr = (a.status || '').toLowerCase();
-          
-          const isComp = statusStr === 'completed' || statusStr === 'done' || statusStr === 'stopped' || a.completed === true || a.isChecked === true || a.isCompleted === true;
-          
-          let isOver = false;
-          if (!isComp) {
-            if (statusStr === 'overdue' || statusStr === 'pending' || a.isOverdue === true) {
-              isOver = true;
-            } else {
-              const actionDate = new Date(d.getTime());
-              const timeStr = a.endTime || a.startTime || "09:00 AM";
-              const totalMinutes = parseTimeToMinutes(timeStr);
-              
-              actionDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
-
-              if (now - actionDate > 0) {
-                isOver = true;
-              }
-            }
-          }
-
-          if (isTargetPeriod(y, m)) {
-            currTotalAct += 1;
-            if (isComp) currCompAct += 1;
-            if (isOver) currOverdueAct += 1;
-          } else if (isPrevPeriod(y, m)) {
-            prevTotalAct += 1;
-            if (isComp) prevCompAct += 1;
-            if (isOver) prevOverdueAct += 1;
-          }
-        });
-        
-        const calcDiffPct = (curr, prev) => {
-          if (prev === 0) return curr > 0 ? 100 : 0;
-          return Math.round(((curr - prev) / prev) * 100);
-        };
-
-        const currCompPct = currTotalAct > 0 ? Math.round((currCompAct / currTotalAct) * 100) : 0;
-        const prevCompPct = prevTotalAct > 0 ? Math.round((prevCompAct / prevTotalAct) * 100) : 0;
-
-        const meetingsDiff = calcDiffPct(currMeetings, prevMeetings);
-        const hoursDiff = calcDiffPct(currHours, prevHours);
-        const compPctDiff = calcDiffPct(currCompPct, prevCompPct);
-        const overdueDiff = currOverdueAct - prevOverdueAct; 
-
-        setMetrics({
-          meetings: {
-            current: currMeetings,
-            diffPct: Math.abs(meetingsDiff),
-            isUp: meetingsDiff >= 0
-          },
-          hours: {
-            current: Number(currHours.toFixed(1)), 
-            diffPct: Math.abs(hoursDiff),
-            isUp: hoursDiff >= 0
-          },
-          completedPct: {
-            current: currCompPct,
-            diffPct: Math.abs(compPctDiff),
-            isUp: compPctDiff >= 0
-          },
-          overdue: {
-            current: currOverdueAct,
-            diffCount: Math.abs(overdueDiff),
-            isUp: overdueDiff > 0
-          }
-        });
-
-      } catch (e) {
-        console.error("MetricCards Calculation Error:", e);
+        if (hrs > 0) {
+          return hrs;
+        }
       }
-    };
+    }
+    return 0;
+  };
 
-    calculateMetrics();
-    window.addEventListener('storage', calculateMetrics);
-    window.addEventListener('sync-action-items', calculateMetrics);
+  // 3. Overdue
+  const isMeetingOverdue = (m, now) => {
+    if (isMeetingCompleted(m)) return false;
 
-    return () => {
-      window.removeEventListener('storage', calculateMetrics);
-      window.removeEventListener('sync-action-items', calculateMetrics); 
+    const session = getSessionForMeeting(m);
+    const status = String(session?.status || m?.status || '').toLowerCase();
+    if (status === 'running' || status === 'stopped' || status === 'completed') return false;
+
+    const dateStr = m?.date || m?.meeting_date;
+    if (!dateStr) return false;
+
+    const meetingDate = new Date(dateStr);
+    if (isNaN(meetingDate.getTime())) return false;
+
+    meetingDate.setHours(23, 59, 59, 999);
+    return now > meetingDate;
+  };
+
+  const calculateChange = (current, previous) => {
+    if (previous === 0) {
+      if (current === 0) return { pct: 0, isIncrease: true, isSame: true };
+      return { pct: 100, isIncrease: true, isSame: false };
+    }
+    const diff = current - previous;
+    const pct = Math.round((diff / previous) * 100);
+    return { pct: Math.abs(pct), isIncrease: diff >= 0, isSame: diff === 0 };
+  };
+
+  const metrics = useMemo(() => {
+    const now = new Date();
+    const meetingsList = Array.isArray(bookedMeetings) ? bookedMeetings : [];
+
+    const currentCount = meetingsList.length;
+    let completedHours = 0; 
+    let completedCount = 0;
+
+    meetingsList.forEach((m) => {
+      if (isMeetingCompleted(m)) {
+        completedCount += 1;
+        completedHours += getMeetingHours(m);
+      }
+    });
+
+    const currentOverdue = meetingsList.filter((m) => isMeetingOverdue(m, now)).length;
+    const currentCompletedPct = currentCount > 0 ? Math.round((completedCount / currentCount) * 100) : 0;
+
+    return {
+      meetings: { current: currentCount, change: calculateChange(currentCount, 0) },
+      hours: { current: Number(completedHours.toFixed(2)), change: calculateChange(completedHours, 0) }, 
+      completedPct: { current: currentCompletedPct, change: calculateChange(currentCompletedPct, 0) },
+      overdue: { current: currentOverdue, change: calculateChange(currentOverdue, 0) }
     };
-  }, [filter]);
+  }, [bookedMeetings, safeSessions, filter]);
+
+  const TrendBadge = ({ change, reverseColor = false }) => {
+    if (change.isSame) {
+      return (
+        <div className="flex items-center gap-1 text-xs font-medium text-gray-500">
+          <Minus className="w-3.5 h-3.5" />
+          <span>0% vs {compareLabel}</span>
+        </div>
+      );
+    }
+    const isGood = reverseColor ? !change.isIncrease : change.isIncrease;
+    const colorClass = isGood ? 'text-emerald-600' : 'text-rose-600';
+    const Icon = change.isIncrease ? ArrowUp : ArrowDown;
+    const sign = change.isIncrease ? '+' : '-';
+
+    return (
+      <div className={`flex items-center gap-1 text-xs font-medium ${colorClass}`}>
+        <Icon className="w-3.5 h-3.5" />
+        <span>{sign}{change.pct}% vs {compareLabel}</span>
+      </div>
+    );
+  };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {/* Total Meetings */}
       <div className="bg-gradient-to-br from-indigo-50/70 to-purple-50/40 border border-indigo-100/60 p-5 rounded-2xl">
         <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Total Meetings</p>
         <h3 className="text-3xl font-extrabold text-gray-900 mb-3">{metrics.meetings.current}</h3>
-        <div className={`flex items-center gap-1 text-xs font-medium ${metrics.meetings.isUp ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {metrics.meetings.isUp ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-          <span>{metrics.meetings.diffPct}% vs {compareLabel}</span>
-        </div>
+        <TrendBadge change={metrics.meetings.change} />
       </div>
 
-      {/* Total Meeting Hours */}
       <div className="bg-gradient-to-br from-purple-50/70 to-indigo-50/40 border border-purple-100/60 p-5 rounded-2xl">
-        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Total Meeting Hours</p>
-        <h3 className="text-3xl font-extrabold text-gray-900 mb-3">{metrics.hours.current}</h3>
-        <div className={`flex items-center gap-1 text-xs font-medium ${metrics.hours.isUp ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {metrics.hours.isUp ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-          <span>{metrics.hours.diffPct}% vs {compareLabel}</span>
-        </div>
+        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Completed Meeting Hours</p>
+        <h3 className="text-3xl font-extrabold text-gray-900 mb-3">{metrics.hours.current} hrs</h3>
+        <TrendBadge change={metrics.hours.change} />
       </div>
 
-      {/* Completed Actions */}
       <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/40 border border-emerald-100/60 p-5 rounded-2xl relative">
         <div className="flex justify-between items-start">
           <div>
@@ -295,13 +185,9 @@ export default function MetricCards({ filter }) {
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
-        <div className={`flex items-center gap-1 text-xs font-medium ${metrics.completedPct.isUp ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {metrics.completedPct.isUp ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-          <span>{metrics.completedPct.diffPct}% vs {compareLabel}</span>
-        </div>
+        <TrendBadge change={metrics.completedPct.change} />
       </div>
 
-      {/* Overdue Actions */}
       <div className="bg-gradient-to-br from-rose-50/70 to-red-50/40 border border-rose-100/60 p-5 rounded-2xl relative">
         <div className="flex justify-between items-start">
           <div>
@@ -312,10 +198,7 @@ export default function MetricCards({ filter }) {
             <AlertCircle className="w-5 h-5" />
           </div>
         </div>
-        <div className={`flex items-center gap-1 text-xs font-medium ${metrics.overdue.isUp ? 'text-rose-600' : 'text-emerald-600'}`}>
-          {metrics.overdue.isUp ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
-          <span>{Math.abs(metrics.overdue.diffCount)} vs {compareLabel}</span>
-        </div>
+        <TrendBadge change={metrics.overdue.change} reverseColor={true} />
       </div>
     </div>
   );

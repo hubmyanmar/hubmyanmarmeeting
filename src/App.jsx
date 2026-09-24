@@ -19,6 +19,7 @@ export default function App() {
   const [bookedMeetings, setBookedMeetings] = useState([]);
   const [meetingRooms, setMeetingRooms] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [meetingSessions, setMeetingSessions] = useState({});
   
   // 1. Meetings
   useEffect(() => {
@@ -39,8 +40,25 @@ export default function App() {
 
     fetchMeetingsFromDB();
   }, []);
+  useEffect(() => {
+    const fetchSessionsFromDB = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/v1/meeting-sessions');
+        if (res.ok) {
+          const sessionsData = await res.json();
+          setMeetingSessions(sessionsData || {});
+        } else {
+          console.error("Failed to fetch meeting sessions. Status:", res.status);
+        }
+      } catch (error) {
+        console.error("Error fetching meeting sessions from Database:", error);
+      }
+    };
 
-  // 2. Meeting Rooms
+    fetchSessionsFromDB();
+  }, []);
+
+  // 3. Meeting Rooms
   useEffect(() => {
     const fetchRoomsFromDB = async () => {
       try {
@@ -59,7 +77,7 @@ export default function App() {
     fetchRoomsFromDB();
   }, []);
 
-  // 3. User ယူရန်
+  // 4. User
   useEffect(() => {
     const fetchUserFromDB = async () => {
       try {
@@ -102,7 +120,10 @@ export default function App() {
           <Route path="meeting-records" element={<MeetingRecords />} />
           <Route path="action-items" element={<ActionItem />} />
           <Route path="calendar" element={<Calendar bookedMeetings={bookedMeetings} />} />
-          <Route path="reports" element={<Reports bookedMeetings={bookedMeetings} />} />
+          
+          {/* Reports ထဲသို့ meetingSessions ကို Prop အဖြစ် ပို့ပေးထားပါသည် */}
+          <Route path="reports" element={<Reports bookedMeetings={bookedMeetings} meetingSessions={meetingSessions} />} />
+          
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

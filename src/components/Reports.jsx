@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './Reports/Header';
 import MetricCards from './Reports/MetricCards';
 import DepartmentChart from './Reports/DepartmentChart';
@@ -6,79 +6,82 @@ import ActionsChart from './Reports/ActionsChart';
 import TopRooms from './Reports/TopRooms';
 import OverdueActions from './Reports/OverdueActions';
 
-export default function Reports({ bookedMeetings = [] }) {
+const formatDisplayValue = (val, fallback = '') => {
+  if (!val) return fallback;
+  if (typeof val === 'object') {
+    return val.name || val.title || val.room_name || val.room || fallback;
+  }
+  return String(val);
+};
+export default function Reports({ meetingSessions = {} }) {
   const [filter, setFilter] = useState({
     view: 'month',
-    month: 'this_month',
+    month: new Date().getMonth().toString(),
     year: new Date().getFullYear()
   });
 
-  const filteredMeetings = useMemo(() => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
+  const [filteredMeetings, setFilteredMeetings] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    return bookedMeetings.filter((meeting) => {
-      const rawDate = meeting.date || meeting.startedAt || meeting.startTime;
-      if (!rawDate) return false;
-
-      const d = new Date(rawDate);
-      if (isNaN(d.getTime())) return false;
-
-      const meetingYear = d.getFullYear();
-      const meetingMonth = d.getMonth();
-
-      if (filter.view === 'year') {
-        return meetingYear === filter.year;
-      } 
-      
-      if (filter.view === 'month') {
-        if (filter.month === 'this_month') {
-          return meetingYear === currentYear && meetingMonth === currentMonth;
-        } 
-        if (filter.month === 'last_month') {
-          const lastM = currentMonth === 0 ? 11 : currentMonth - 1;
-          const lastY = currentMonth === 0 ? currentYear - 1 : currentYear;
-          return meetingYear === lastY && meetingMonth === lastM;
-        } 
-        return meetingYear === filter.year && meetingMonth === parseInt(filter.month, 10);
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const queryParams = new URLSearchParams({
+          view: filter.view,
+          year: filter.year,
+          ...(filter.view === 'month' && { month: filter.month })
+        });
+        const resMeetings = await fetch(`http://127.0.0.1:8000/api/v1/meetings?${queryParams.toString()}`);
+        if (resMeetings.ok) {
+          const rawMeetings = await resMeetings.json();
+          const formatted = Array.isArray(rawMeetings)
+            ? rawMeetings.map((m) => ({
+                ...m,
+                title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
+                room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
+                date: formatDisplayValue(m.date || m.meeting_date || m.startTime || m.startedAt)
+              }))
+            : [];
+          setFilteredMeetings(formatted);
+        }
+      } catch (error) {
+        console.error('Error fetching report data:', error);
+      } finally {
+        setLoading(false);
       }
-      return false;
-    });
-  }, [bookedMeetings, filter]);
+    };
 
-  
-  const totalMeetingHours = useMemo(() => {
-    return filteredMeetings.reduce((acc, meeting) => {
-      
-      if (meeting.duration) return acc + Number(meeting.duration);
-      if (meeting.durationHours) return acc + Number(meeting.durationHours);
-
-      const start = new Date(meeting.startTime || meeting.startedAt);
-      const end = new Date(meeting.endTime || meeting.endedAt);
-      if (!isNaN(start) && !isNaN(end)) {
-        const diffInHours = (end - start) / (1000 * 60 * 60);
-        return acc + (diffInHours > 0 ? diffInHours : 0);
-      }
-      return acc;
-    }, 0);
-  }, [filteredMeetings]);
+    fetchData();
+  }, [filter]);
 
   return (
-    <div className="max-w-[1400px] mx-auto">
-      <Header onFilterChange={setFilter} />
-      
-     <MetricCards filter={filter} bookedMeetings={bookedMeetings} />
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <DepartmentChart bookedMeetings={filteredMeetings} />
-        <ActionsChart filter={filter} />
-      </div>
+    <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
+      <Header filter={filter} onFilterChange={setFilter} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TopRooms bookedMeetings={filteredMeetings} filter={filter} />
-        <OverdueActions bookedMeetings={filteredMeetings} />
-      </div>
+      {loading ? (
+        <div className="p-12 text-center text-gray-500 font-medium">
+          Data များကို Backend မှ ရယူနေပါသည်...
+        </div>
+      ) : (
+        <>
+          <MetricCards 
+            filter={filter} 
+            bookedMeetings={filteredMeetings} 
+            meetingSessions={meetingSessions} 
+          />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <DepartmentChart bookedMeetings={filteredMeetings} />
+            <ActionsChart filter={filter} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TopRooms bookedMeetings={filteredMeetings} filter={filter} />
+            <OverdueActions bookedMeetings={filteredMeetings} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
