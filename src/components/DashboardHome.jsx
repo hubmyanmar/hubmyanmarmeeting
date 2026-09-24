@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import TopStats from './TopStats';
 import TodaySchedule from './TodaySchedule';
@@ -19,30 +19,11 @@ const formatDisplayValue = (val, fallback = '') => {
   return String(val);
 };
 
-const parseMeetingDateTime = (dateStr, timeStr) => {
-  const safeDateStr = formatDisplayValue(dateStr);
-  const safeTimeStr = formatDisplayValue(timeStr);
-
-  if (!safeTimeStr || !safeDateStr) return new Date();
-  
-  const parts = safeTimeStr.split(' ');
-  const time = parts[0] || '00:00';
-  const modifier = (parts[1] || '').toUpperCase();
-  
-  let [hours, minutes] = time.split(':');
-  hours = parseInt(hours || 0, 10);
-  
-  if (modifier === 'PM' && hours < 12) hours += 12;
-  if (modifier === 'AM' && hours === 12) hours = 0;
-
-  const d = new Date(safeDateStr);
-  if (isNaN(d.getTime())) return new Date();
-
-  d.setHours(hours, parseInt(minutes || 0, 10), 0, 0);
-  return d;
-};
-
-export default function DashboardHome({ bookedMeetings: rawBookedMeetings = [], currentUser: propUser }) {
+export default function DashboardHome({ 
+  bookedMeetings: rawBookedMeetings = [], 
+  currentUser: propUser,
+  meetingSessions = {} 
+}) {
   const location = useLocation();
   const [currentUser] = useState(
     propUser || location.state?.user || null
@@ -57,65 +38,30 @@ export default function DashboardHome({ bookedMeetings: rawBookedMeetings = [], 
     })) : [];
   }, [rawBookedMeetings]);
 
-  const [meetingSessions, setMeetingSessions] = useState({});
-
-  useEffect(() => {
-    const loadSessionsFromBackend = async () => {
-      try {
-        const sessionsRes = await fetch('http://127.0.0.1:8000/api/v1/meeting-sessions');
-        if (sessionsRes.ok) {
-          const sessionsData = await sessionsRes.json();
-          setMeetingSessions(sessionsData || {});
-        }
-      } catch (error) {
-        console.error('Error loading meeting sessions from backend:', error);
-      }
-    };
-
-    loadSessionsFromBackend();
-
-    window.addEventListener('sync-meeting-sessions', loadSessionsFromBackend);
-
-    return () => {
-      window.removeEventListener('sync-meeting-sessions', loadSessionsFromBackend);
-    };
-  }, []);
-
   const { todayMeetings, upcomingMeetings, pendingCount, overdueCount } = useMemo(() => {
     const todayStr = getTodayDateString(); 
-    const now = new Date(); 
-    
     const today = bookedMeetings.filter(m => {
       const mDate = formatDisplayValue(m.date || m.meeting_date);
       return mDate.includes(todayStr) || todayStr.includes(mDate);
     });
-
     const upcoming = bookedMeetings.filter(m => {
       const mDate = formatDisplayValue(m.date || m.meeting_date);
       return mDate && mDate > todayStr;
     });
-
-    // -- Pending Count
     const completedCount = today.filter(m => {
       const mTitle = formatDisplayValue(m.title || 'meeting');
       const mTime = formatDisplayValue(m.start_time || m.startTime || '');
       const id = m.id || `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
       return meetingSessions[id]?.status === 'stopped';
     }).length;
-
-    // -- Overdue Count
     const overdue = bookedMeetings.filter(m => {
+      const mDate = formatDisplayValue(m.date || m.meeting_date);
       const mTitle = formatDisplayValue(m.title || 'meeting');
       const mTime = formatDisplayValue(m.start_time || m.startTime || '');
       const id = m.id || `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
+      
       const status = meetingSessions[id]?.status;
-
-      if (status === 'stopped' || status === 'running') return false;
-
-      const meetingDateTime = parseMeetingDateTime(m.date || m.meeting_date, m.start_time || m.startTime);
-      const gracePeriodTime = new Date(meetingDateTime.getTime() + (15 * 60 * 1000));
-
-      return now > gracePeriodTime; 
+      return mDate && mDate < todayStr && status !== 'stopped';
     }).length;
 
     return {
@@ -126,7 +72,6 @@ export default function DashboardHome({ bookedMeetings: rawBookedMeetings = [], 
     };
   }, [bookedMeetings, meetingSessions]);
 
-  // 3. Render
   return (
     <div className="max-w-[1400px] mx-auto flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
       

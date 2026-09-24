@@ -106,7 +106,16 @@ export default function App() {
       <Routes>
         <Route path="/" element={<AuthCard setCurrentUser={setCurrentUser} />} />
         <Route path="/dashboard" element={<Dashboard currentUser={currentUser} />}>
-          <Route index element={<DashboardHome bookedMeetings={bookedMeetings} currentUser={currentUser} />} />
+          <Route 
+            index 
+            element={
+              <DashboardHome 
+                bookedMeetings={bookedMeetings} 
+                currentUser={currentUser} 
+                meetingSessions={meetingSessions} 
+              />
+            } 
+          />
           <Route path="my-meetings" element={<MyMeetings bookedMeetings={bookedMeetings} />} />
           <Route 
             path="book-meeting" 
