@@ -1,245 +1,105 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const COMPLETED_STATUSES = new Set(['completed', 'complete', 'done', 'finished', 'closed', 'stopped', 'stop', 'ended']);
 
-const parseTimeToMinutes = (timeStr) => {
-  if (!timeStr) return 0;
-  const upper = timeStr.trim().toUpperCase();
-  let hours = 0, minutes = 0;
-  if (upper.includes('AM') || upper.includes('PM')) {
-    const isPM = upper.includes('PM');
-    const isAM = upper.includes('AM');
-    const [h, m] = upper.replace('AM', '').replace('PM', '').trim().split(':');
-    hours = parseInt(h, 10) || 0;
-    minutes = parseInt(m, 10) || 0;
-    if (isPM && hours < 12) hours += 12;
-    if (isAM && hours === 12) hours = 0;
-  } else {
-    const [h, m] = upper.split(':');
-    hours = parseInt(h, 10) || 0;
-    minutes = parseInt(m, 10) || 0;
-  }
-  return hours * 60 + minutes;
-};
+export default function ActionsChart({ filter, bookedMeetings = [], actions = [], meetingSessions = {} }) {
+  
+  const chartData = useMemo(() => {
+    const comp = [0, 0, 0, 0];
+    const over = [0, 0, 0, 0];
+    const now = new Date();
+    
+    const targetYear = filter?.year ? parseInt(filter.year, 10) : now.getFullYear();
+    const targetMonth = filter?.month === 'last_month' 
+      ? (now.getMonth() === 0 ? 11 : now.getMonth() - 1)
+      : (filter?.month && filter.month !== 'this_month' ? parseInt(filter.month, 10) - 1 : now.getMonth());
 
-export default function ActionsChart({ filter }) {
-  const [chartData, setChartData] = useState({
-    completed: [0, 0, 0, 0],
-    overdue: [0, 0, 0, 0],
-    labels: ['Sep 1-7', 'Sep 8-14', 'Sep 15-21', 'Sep 22-31']
-  });
+    const rawList = actions.length ? actions : bookedMeetings;
+    const allActions = rawList.flatMap(item => item?.actions?.length ? item.actions.map(act => ({ ...act, parent: item })) : [item]);
 
-  useEffect(() => {
-    const calculateActions = () => {
-      try {
-        const rawActionItems = localStorage.getItem('actionItems');
-        const rawMeetingActions = localStorage.getItem('meetingActions');
-        const rawActions = localStorage.getItem('actions');
-        const rawTasks = localStorage.getItem('tasks');
-        const rawMeetingSessions = localStorage.getItem('meetingSessions');
-        const rawBookedMeetings = localStorage.getItem('bookedMeetings');
+    allActions.forEach(action => {
+      const parent = action.parent || {};
+      const rawDate = action.dueDate || action.date || action.meeting_date || parent.dueDate || parent.date || parent.meeting_date || action.createdAt;
+      if (!rawDate) return;
 
-        let savedActions = rawActionItems || rawMeetingActions || rawActions || rawTasks || rawBookedMeetings;
-        let actions = savedActions ? JSON.parse(savedActions) : [];
+      const d = new Date(rawDate);
+      if (isNaN(d.getTime())) return;
 
-        if (!actions || (Array.isArray(actions) && actions.length === 0) || (typeof actions === 'object' && Object.keys(actions).length === 0)) {
-          if (rawMeetingSessions) {
-            actions = JSON.parse(rawMeetingSessions);
-          }
-        }
+      const isMatch = filter?.view === 'year' 
+        ? d.getFullYear() === targetYear 
+        : d.getFullYear() === targetYear && d.getMonth() === targetMonth;
 
-        const actionsArray = Array.isArray(actions) ? actions : Object.values(actions);
+      if (!isMatch) return;
 
-        let compPointsData = [0, 0, 0, 0];
-        let overPointsData = [0, 0, 0, 0];
+      const meetingId = action.id || action.meeting_id || parent.id || parent.meeting_id;
+      const session = meetingSessions[meetingId] || meetingSessions[String(meetingId)] || meetingSessions[Number(meetingId)] || {};
+      
+      const sessionStatus = String(session.status || action.status || parent.status || '').toLowerCase().trim();
+      const isCompleted = COMPLETED_STATUSES.has(sessionStatus) || Boolean(session.actual_ended_at) || session.completed || action.completed || parent.completed;
 
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth();
+      const deadline = new Date(rawDate);
+      deadline.setHours(23, 59, 59, 999);
+      
+      const isOverdue = !isCompleted && (sessionStatus === 'overdue' || action.isOverdue || now > deadline);
 
-        actionsArray.forEach((action) => {
-          const rawDate = action.date || action.dueDate || action.createdAt || action.startedAt || action.endTime || action.timestamp;
-          
-          let actionYear, actionMonth, day;
-          if (rawDate) {
-            const d = new Date(rawDate);
-            actionYear = d.getFullYear();
-            actionMonth = d.getMonth();
-            day = d.getDate();
-          }
+      // Index Assignment (Year = Q1-Q4, Month = 4 Weeks)
+      const index = filter?.view === 'year' 
+        ? Math.min(3, Math.floor(d.getMonth() / 3)) 
+        : Math.min(3, Math.floor((d.getDate() - 1) / 7));
 
-          let isMatch = false;
+      if (isCompleted) comp[index]++;
+      else if (isOverdue) over[index]++;
+    });
 
-          if (!filter) {
-            isMatch = (actionYear === currentYear && actionMonth === currentMonth);
-          } else if (filter.view === 'year') {
-            isMatch = (actionYear === filter.year);
-          } else if (filter.view === 'month') {
-            if (filter.month === 'this_month') {
-              isMatch = (actionYear === currentYear && actionMonth === currentMonth);
-            } else if (filter.month === 'last_month') {
-              let lastM = currentMonth - 1;
-              let lastY = currentYear;
-              if (lastM < 0) { lastM = 11; lastY -= 1; }
-              isMatch = (actionYear === lastY && actionMonth === lastM);
-            } else {
-              const fMonth = parseInt(filter.month);
-              isMatch = (actionYear === filter.year) && (actionMonth === fMonth || actionMonth === fMonth - 1);
-            }
-          }
-          const statusStr = (action.status || '').toLowerCase();
-          const isCompleted = statusStr === 'completed' || statusStr === 'done' || statusStr === 'stopped' || action.completed === true || action.isChecked === true;
-          let isOverdue = false;
-          if (!isCompleted) {
-            if (statusStr === 'overdue' || action.isOverdue === true) {
-              isOverdue = true;
-            } else if (rawDate) {
-              const actionDate = new Date(rawDate);
-              const timeStr = action.endTime || action.startTime || "09:00 AM";
-              const totalMinutes = parseTimeToMinutes(timeStr);
-              
-              actionDate.setHours(Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0);
+    const labels = filter?.view === 'year' 
+      ? ['Q1', 'Q2', 'Q3', 'Q4'] 
+      : (() => {
+          const m = MONTHS_SHORT[targetMonth] || 'Jan';
+          return [`${m} 1-7`, `${m} 8-14`, `${m} 15-21`, `${m} 22-31`];
+        })();
 
-              if (now - actionDate > 0) {
-                isOverdue = true;
-              }
-            }
-          }
+    return { completed: comp, overdue: over, labels };
+  }, [filter, bookedMeetings, actions, meetingSessions]);
 
-          if (isMatch) {
-            let index = 0;
-            if (filter && filter.view === 'year') {
-              index = Math.floor(actionMonth / 3);
-            } else {
-              if (day >= 1 && day <= 7) index = 0;
-              else if (day >= 8 && day <= 14) index = 1;
-              else if (day >= 15 && day <= 21) index = 2;
-              else index = 3;
-            }
+  const maxVal = Math.max(...chartData.completed, ...chartData.overdue, 0);
+  const step = Math.max(10, Math.ceil(maxVal / 4 / 10) * 10);
+  const max = step * 4;
+  const getY = val => 100 - (Math.min(val, max) / max) * 100;
 
-            if (isCompleted) {
-              compPointsData[index] += 1;
-            } else if (isOverdue) {
-              overPointsData[index] += 1;
-            }
-          }
-        });
-
-        let activeLabels = [];
-        if (filter && filter.view === 'year') {
-          activeLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
-        } else {
-          let mIndex = currentMonth;
-          if (filter && filter.view === 'month') {
-            if (filter.month === 'this_month') mIndex = currentMonth;
-            else if (filter.month === 'last_month') mIndex = currentMonth === 0 ? 11 : currentMonth - 1;
-            else if (typeof filter.month !== 'undefined' && filter.month !== 'this_month' && filter.month !== 'last_month') {
-              const parsedM = parseInt(filter.month);
-              mIndex = parsedM > 11 ? parsedM - 1 : parsedM;
-            }
-          }
-          const mName = MONTHS_SHORT[mIndex] || 'Sep';
-          activeLabels = [`${mName} 1-7`, `${mName} 8-14`, `${mName} 15-21`, `${mName} 22-31`];
-        }
-
-        setChartData({
-          completed: compPointsData,
-          overdue: overPointsData,
-          labels: activeLabels
-        });
-
-      } catch (e) {
-        console.error("Error calculating actions chart:", e);
-      }
-    };
-
-    calculateActions();
-    window.addEventListener('storage', calculateActions);
-    window.addEventListener('sync-action-items', calculateActions);
-
-    return () => {
-      window.removeEventListener('storage', calculateActions);
-      window.removeEventListener('sync-action-items', calculateActions);
-    };
-  }, [filter]);
-
-  const maxDataVal = Math.max(...chartData.completed, ...chartData.overdue, 0);
-  const max = Math.max(40, Math.ceil(maxDataVal / 10) * 10);
-  const getY = (val) => {
-    const bottom0Line = 95; // 0 baseline position
-    const topMaxLine = 5;    // Top max position
-    return bottom0Line - (val / max) * (bottom0Line - topMaxLine);
-  };
-
-  const c1 = getY(chartData.completed[0]);
-  const c2 = getY(chartData.completed[1]);
-  const c3 = getY(chartData.completed[2]);
-  const c4 = getY(chartData.completed[3]);
-
-  const o1 = getY(chartData.overdue[0]);
-  const o2 = getY(chartData.overdue[1]);
-  const o3 = getY(chartData.overdue[2]);
-  const o4 = getY(chartData.overdue[3]);
-
-  const x1 = 10, x2 = 100, x3 = 190, x4 = 280;
-
-  const compPoints = `${x1},${c1} ${x2},${c2} ${x3},${c3} ${x4},${c4}`;
-  const overPoints = `${x1},${o1} ${x2},${o2} ${x3},${o3} ${x4},${o4}`;
+  const [c1, c2, c3, c4] = chartData.completed.map(getY);
+  const [o1, o2, o3, o4] = chartData.overdue.map(getY);
+  const [x1, x2, x3, x4] = [10, 100, 190, 280];
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-base font-bold text-gray-900">Actions Overview</h2>
         <div className="flex items-center gap-4 text-xs font-medium">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="text-gray-600">Completed</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-            <span className="text-gray-600">Overdue</span>
-          </div>
+          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-gray-600">Completed</span></div>
+          <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"></span><span className="text-gray-600">Overdue</span></div>
         </div>
       </div>
 
       <div className="relative h-48 w-full flex">
-        {/* Y-Axis Label (40, 30, 20, 10, 0) */}
         <div className="flex flex-col justify-between text-[10px] text-gray-400 pb-2 pr-3 items-end w-8 shrink-0">
-          <span>{max}</span>
-          <span>{max * 0.75}</span>
-          <span>{max * 0.5}</span>
-          <span>{max * 0.25}</span>
-          <span className="font-semibold text-gray-500">0</span>
+          <span>{max}</span><span>{step * 3}</span><span>{step * 2}</span><span>{step * 1}</span><span className="font-semibold text-gray-500">0</span>
         </div>
 
-        <div className="relative flex-1 h-[calc(100%-1.25rem)] ml-1">
-          {/* Grid Lines */}
+        <div className="relative flex-1 h-[calc(100%-0.5rem)] ml-1">
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-            <div className="border-b border-gray-100 w-full h-[1px]"></div>
-            <div className="border-b border-gray-100 w-full h-[1px]"></div>
-            <div className="border-b border-gray-100 w-full h-[1px]"></div>
-            <div className="border-b border-gray-100 w-full h-[1px]"></div>
-            {/* 0 Line Baseline */}
+            {[...Array(4)].map((_, i) => <div key={i} className="border-b border-gray-100 w-full h-[1px]"></div>)}
             <div className="border-b-2 border-gray-300 w-full h-[1px]"></div>
           </div>
 
           <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 290 100" preserveAspectRatio="none">
-            {/* Overdue Line */}
-            <polyline fill="none" stroke="#F43F5E" strokeWidth="1.5" points={overPoints} />
-            <circle cx={x1} cy={o1} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
-            <circle cx={x2} cy={o2} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
-            <circle cx={x3} cy={o3} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
-            <circle cx={x4} cy={o4} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />
+            <polyline fill="none" stroke="#F43F5E" strokeWidth="1.5" points={`${x1},${o1} ${x2},${o2} ${x3},${o3} ${x4},${o4}`} />
+            {[[x1,o1],[x2,o2],[x3,o3],[x4,o4]].map(([x,y], i) => <circle key={i} cx={x} cy={y} r="2.5" className="fill-white stroke-rose-500 stroke-[1.5px]" />)}
 
-            {/* Completed Line */}
-            <polyline fill="none" stroke="#10B981" strokeWidth="2" points={compPoints} />
-            <circle cx={x1} cy={c1} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
-            <circle cx={x2} cy={c2} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
-            <circle cx={x3} cy={c3} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
-            <circle cx={x4} cy={c4} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />
+            <polyline fill="none" stroke="#10B981" strokeWidth="2" points={`${x1},${c1} ${x2},${c2} ${x3},${c3} ${x4},${c4}`} />
+            {[[x1,c1],[x2,c2],[x3,c3],[x4,c4]].map(([x,y], i) => <circle key={i} cx={x} cy={y} r="3" className="fill-white stroke-emerald-500 stroke-[2px]" />)}
           </svg>
 
-          {/* X-Axis Labels */}
           <div className="absolute -bottom-7 left-0 right-0 flex justify-between text-[10.5px] text-gray-400 font-medium">
             <span className="w-1/4 text-left">{chartData.labels[0]}</span>
             <span className="w-1/4 text-center">{chartData.labels[1]}</span>

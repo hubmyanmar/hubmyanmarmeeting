@@ -42,7 +42,7 @@ export default function OverdueActions({ bookedMeetings = [], meetingSessions = 
 
     const completedKeywords = [
       'stopped', 'completed', 'complete', 'done', 
-      'ended', 'finished', 'closed', 'cancelled', 'canceled'
+      'ended', 'finished', 'closed',
     ];
 
     if (completedKeywords.includes(sessionStatus) || completedKeywords.includes(meetingStatus) || isCompletedFlag) {
