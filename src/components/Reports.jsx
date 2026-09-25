@@ -92,7 +92,7 @@ export default function Reports({ meetingSessions = {} }) {
   }, [filter]);
 
   return (
-    <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="max-w-[1400px] mx-auto">
       <Header filter={filter} onFilterChange={setFilter} />
 
       {loading ? (

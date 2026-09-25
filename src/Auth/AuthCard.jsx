@@ -26,7 +26,8 @@ export default function AuthCard({ setCurrentUser }) {
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/v1/auth/positions');
+        // const response = await fetch('http://localhost:8000/api/v1/auth/positions');
+        const response = await fetch('http://192.168.57.191:8000/api/v1/auth/positions');
         if (response.ok) {
           const data = await response.json();
           setPositions(data.positions || []);
@@ -80,7 +81,8 @@ export default function AuthCard({ setCurrentUser }) {
     try {
       if (isLogin) {
         
-        const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        // const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        const response = await fetch('http://192.168.57.191:8000/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -109,7 +111,8 @@ export default function AuthCard({ setCurrentUser }) {
         navigate('/dashboard');
 
       } else {
-        const response = await fetch('http://localhost:8000/api/v1/auth/register', {
+        // const response = await fetch('http://localhost:8000/api/v1/auth/register', {
+        const response = await fetch('http://192.168.57.191:8000/api/v1/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -138,15 +141,19 @@ export default function AuthCard({ setCurrentUser }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+    <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+      {/* Background Atmospheric Gradient Orbs */}
+      <div className="absolute -top-20 -left-20 w-80 h-80 bg-[#a7e5d3]/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-[#f4c5a8]/25 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="bg-white rounded-2xl border border-[#e7e5e4] shadow-sm w-full max-w-md overflow-hidden relative z-10">
         {/* Tab Controls */}
-        <div className="flex border-b border-slate-200">
+        <div className="flex border-b border-[#e7e5e4]">
           <button
             type="button"
             onClick={() => { setIsLogin(true); setError(''); }}
-            className={`w-1/2 py-4 text-center font-semibold transition-all ${
-              isLogin ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-indigo-600'
+            className={`w-1/2 py-3.5 sm:py-4 text-sm sm:text-base text-center font-medium transition-all ${
+              isLogin ? 'text-[#0c0a09] border-b-2 border-[#0c0a09]' : 'text-[#777169] hover:text-[#0c0a09]'
             }`}
           >
             Login
@@ -154,36 +161,36 @@ export default function AuthCard({ setCurrentUser }) {
           <button
             type="button"
             onClick={() => { setIsLogin(false); setError(''); }}
-            className={`w-1/2 py-4 text-center font-semibold transition-all ${
-              !isLogin ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-indigo-600'
+            className={`w-1/2 py-3.5 sm:py-4 text-sm sm:text-base text-center font-medium transition-all ${
+              !isLogin ? 'text-[#0c0a09] border-b-2 border-[#0c0a09]' : 'text-[#777169] hover:text-[#0c0a09]'
             }`}
           >
             Register
           </button>
         </div>
 
-        <div className="p-8">
-          <h2 className="text-2xl font-bold text-slate-800 text-center mb-1">
+        <div className="p-6 sm:p-8">
+          <h2 className="font-serif font-light text-2xl sm:text-3xl text-[#0c0a09] text-center mb-1">
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
-          <p className="text-sm text-slate-500 text-center mb-6">
+          <p className="text-sm text-[#777169] text-center mb-6">
             {isLogin ? 'Please enter your details to sign in.' : 'Fill in the form to get started.'}
           </p>
 
           {error && (
             <div className={`mb-4 p-3 text-sm font-medium rounded-lg border ${
               error.includes('successfully') 
-                ? 'bg-green-50 text-green-600 border-green-200' 
-                : 'bg-red-50 text-red-600 border-red-200'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                : 'bg-rose-50 text-rose-700 border-rose-200'
             }`}>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#777169] mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -193,14 +200,14 @@ export default function AuthCard({ setCurrentUser }) {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="John Doe"
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  className="w-full px-4 py-3 sm:py-2.5 rounded-md border border-[#e7e5e4] focus:outline-none focus:border-[#0c0a09] text-base sm:text-sm text-[#0c0a09] placeholder-[#a8a29e] transition-colors"
                 />
               </div>
             )}
 
             {!isLogin && (
               <div className="relative" ref={dropdownRef}>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#777169] mb-1.5">
                   Position / Role
                 </label>
                 <input
@@ -214,17 +221,17 @@ export default function AuthCard({ setCurrentUser }) {
                      if(formData.position) setShowDropdown(true);
                   }}
                   placeholder="Type to search your position..."
-                  className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  className="w-full px-4 py-3 sm:py-2.5 rounded-md border border-[#e7e5e4] focus:outline-none focus:border-[#0c0a09] text-base sm:text-sm text-[#0c0a09] placeholder-[#a8a29e] transition-colors"
                 />
                 
                 {/* Custom Autocomplete Dropdown Menu */}
                 {showDropdown && filteredPositions.length > 0 && (
-                  <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <ul className="absolute z-10 w-full mt-1 bg-white border border-[#e7e5e4] rounded-lg shadow-lg max-h-48 sm:max-h-60 overflow-y-auto">
                     {filteredPositions.map((pos, index) => (
                       <li
                         key={index}
                         onClick={() => handlePositionSelect(pos)}
-                        className="px-4 py-2.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
+                        className="px-4 py-3 sm:py-2.5 text-base sm:text-sm text-[#0c0a09] hover:bg-[#f0efed] cursor-pointer transition-colors"
                       >
                         {pos}
                       </li>
@@ -232,7 +239,7 @@ export default function AuthCard({ setCurrentUser }) {
                   </ul>
                 )}
                 {showDropdown && filteredPositions.length === 0 && formData.position && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 text-sm text-slate-500 italic">
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-[#e7e5e4] rounded-lg shadow-lg px-4 py-3 text-sm text-[#777169] italic">
                     Press Register to save as custom position.
                   </div>
                 )}
@@ -240,7 +247,7 @@ export default function AuthCard({ setCurrentUser }) {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#777169] mb-1.5">
                 Email Address
               </label>
               <input
@@ -250,12 +257,12 @@ export default function AuthCard({ setCurrentUser }) {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="you@example.com"
-                className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-3 sm:py-2.5 rounded-md border border-[#e7e5e4] focus:outline-none focus:border-[#0c0a09] text-base sm:text-sm text-[#0c0a09] placeholder-[#a8a29e] transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#777169] mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -267,12 +274,12 @@ export default function AuthCard({ setCurrentUser }) {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 pr-10 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  className="w-full px-4 py-3 sm:py-2.5 pr-10 rounded-md border border-[#e7e5e4] focus:outline-none focus:border-[#0c0a09] text-base sm:text-sm text-[#0c0a09] placeholder-[#a8a29e] transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#a8a29e] hover:text-[#0c0a09] transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -282,7 +289,7 @@ export default function AuthCard({ setCurrentUser }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg shadow-md transition-all text-sm disabled:opacity-50"
+              className="w-full mt-2 bg-[#292524] hover:bg-[#0c0a09] text-white font-medium py-3 sm:py-2.5 rounded-full shadow-sm transition-all text-base sm:text-sm disabled:opacity-50"
             >
               {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Sign Up'}
             </button>
