@@ -26,7 +26,7 @@ export default function AuthCard({ setCurrentUser }) {
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        // const response = await fetch('http://localhost:8000/api/v1/auth/positions');
+        // const response = await fetch('http://192.168.18.16:8000/api/v1/auth/positions');
         const response = await fetch('http://192.168.57.191:8000/api/v1/auth/positions');
         if (response.ok) {
           const data = await response.json();
@@ -81,7 +81,7 @@ export default function AuthCard({ setCurrentUser }) {
     try {
       if (isLogin) {
         
-        // const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        // const response = await fetch('http://192.168.18.16:8000/api/v1/auth/login', {
         const response = await fetch('http://192.168.57.191:8000/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -111,7 +111,7 @@ export default function AuthCard({ setCurrentUser }) {
         navigate('/dashboard');
 
       } else {
-        // const response = await fetch('http://localhost:8000/api/v1/auth/register', {
+        // const response = await fetch('http://192.168.18.16:8000/api/v1/auth/register', {
         const response = await fetch('http://192.168.57.191:8000/api/v1/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

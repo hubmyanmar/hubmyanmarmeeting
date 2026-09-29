@@ -1,8 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Clock, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, MapPin, CheckCircle2, Calendar } from 'lucide-react';
 
-// --- Utility Functions ---
+const normalizeMeetingStatus = (value, sessionLike = {}) => {
+  const rawStatus = String(value || sessionLike?.status || '').trim().toLowerCase();
+  if (['stopped', 'done', 'completed', 'finished', 'ended', 'closed'].includes(rawStatus)) {
+    return 'stopped';
+  }
+
+  const terminalTimestamp =
+    sessionLike?.stopped_at ||
+    sessionLike?.ended_at ||
+    sessionLike?.finished_at ||
+    sessionLike?.completed_at ||
+    sessionLike?.closed_at ||
+    sessionLike?.actual_ended_at ||
+    sessionLike?.actual_stopped_at ||
+    sessionLike?.endedAt ||
+    sessionLike?.finishedAt ||
+    sessionLike?.completedAt ||
+    sessionLike?.closedAt;
+
+  if (terminalTimestamp) {
+    return 'stopped';
+  }
+
+  if (!value && value !== 0) {
+    return null;
+  }
+
+  if (['running', 'active', 'in_progress', 'started', 'live', 'recording'].includes(rawStatus)) {
+    return 'running';
+  }
+
+  return rawStatus || null;
+};
+
 const getTodayDate = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -13,298 +46,370 @@ const getTodayDate = () => {
 
 const formatTimeToAMPM = (timeStr) => {
   if (!timeStr) return '';
-  const upper = String(timeStr).toUpperCase();
-  if (upper.includes('AM') || upper.includes('PM')) {
-    return upper;
+  let str = String(timeStr).trim();
+  if (str.includes(' - ')) str = str.split(' - ')[0].trim();
+  if (str.includes('T')) {
+    const timePart = str.split('T')[1];
+    if (timePart) return formatTimeToAMPM(timePart.split('.')[0]);
   }
-  const parts = String(timeStr).trim().split(':');
-  if (parts.length < 2) return timeStr;
-
+  const upper = str.toUpperCase();
+  if (upper.includes('AM') || upper.includes('PM')) return upper;
+  const parts = str.split(':');
+  if (parts.length < 2) return str;
   let hours = parseInt(parts[0], 10);
-  const minutes = parts[1];
-
-  if (isNaN(hours)) return timeStr;
-
+  let minutes = parseInt(parts[1], 10);
+  if (isNaN(hours)) return str;
+  if (isNaN(minutes)) minutes = 0;
   const modifier = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-
-  const formattedHours = String(hours).padStart(2, '0');
-  return `${formattedHours}:${minutes} ${modifier}`;
+  hours = hours % 12 || 12;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${modifier}`;
 };
 
 const parseTimeToDate = (timeStr) => {
-  if (!timeStr) return new Date();
-  const formattedStr = formatTimeToAMPM(timeStr);
+  if (!timeStr) return null;
+  let str = String(timeStr).trim();
+  if (!str) return null;
+  if (str.includes(' - ')) str = str.split(' - ')[0].trim();
+  if (str.includes('T') || (str.includes('-') && str.includes(':'))) {
+    const parsedDate = new Date(str);
+    if (!isNaN(parsedDate.getTime())) return parsedDate;
+  }
+  const formattedStr = formatTimeToAMPM(str);
+  if (!formattedStr) return null;
   const parts = formattedStr.split(' ');
-  const timePart = parts[0];
+  const timePart = parts[0] || '';
   const modifier = parts[1] || '';
-  
-  let [hours, minutes] = timePart.split(':');
-  hours = parseInt(hours || 0, 10);
-  
-  if (modifier === 'PM' && hours < 12) hours += 12;
-  if (modifier === 'AM' && hours === 12) hours = 0;
-  
+  const timeSubParts = timePart.split(':');
+  if (timeSubParts.length < 2) return null;
+  let h = parseInt(timeSubParts[0], 10);
+  let m = parseInt(timeSubParts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  if (modifier === 'PM' && h < 12) h += 12;
+  if (modifier === 'AM' && h === 12) h = 0;
   const d = new Date();
-  d.setHours(hours, parseInt(minutes || 0, 10), 0, 0);
+  d.setHours(h, m, 0, 0);
   return d;
+};
+
+const formatElapsedDuration = (elapsedMins) => {
+  if (elapsedMins < 1) return `1 min`;
+  if (elapsedMins < 60) {
+    return `${elapsedMins} min${elapsedMins === 1 ? '' : 's'}`;
+  }
+  const hrs = Math.floor(elapsedMins / 60);
+  const remainingMins = elapsedMins % 60;
+  if (remainingMins === 0) {
+    return `${hrs} hr${hrs === 1 ? '' : 's'}`;
+  }
+  return `${hrs} hr ${remainingMins} min${remainingMins === 1 ? '' : 's'}`;
 };
 
 const formatDisplayValue = (val) => {
   if (!val) return '';
   if (typeof val === 'object') {
-    return val.name || val.title || val.room_name || val.room || val.label || JSON.stringify(val);
+    return val.name || val.title || val.room_name || val.room || val.label || '';
   }
   return String(val);
 };
 
 const sanitizeMeetingData = (meeting) => {
   if (!meeting) return {};
+  const link = meeting.meetingLink || meeting.meeting_link || meeting.join_url || meeting.zoom_link || meeting.zoho_link || meeting.url || '';
+  const platform = meeting.platform || meeting.meeting_type || meeting.type || '';
+  const lowerLink = link.toLowerCase();
+  const lowerPlatform = platform.toLowerCase();
+  const isOnline = !!link || lowerPlatform.includes('zoom') || lowerPlatform.includes('zoho') || lowerPlatform.includes('online') || lowerLink.includes('zoom') || lowerLink.includes('zoho');
+  const rawRoom = formatDisplayValue(meeting.room || meeting.meeting_room || meeting.room_name);
+  const roomName = isOnline ? 'Online Meeting' : (rawRoom || 'Main Room');
+  const realId = meeting.id || meeting._id || meeting.meeting_id || meeting.meetingId;
+  const startTimeRaw = meeting.startTime || meeting.start_time || meeting.time || meeting.start || meeting.meeting_time || meeting.schedule_time || meeting.from_time || '';
+  const titleStr = formatDisplayValue(meeting.title || meeting.meeting_title || meeting.name) || 'Untitled Meeting';
+  const fallbackId = `meeting_${startTimeRaw || 'notime'}_${titleStr}`.replace(/[^a-zA-Z0-9]/g, '_');
+
   return {
-    ...meeting,
-    title: formatDisplayValue(meeting.title || meeting.meeting_title || meeting.name),
-    room: formatDisplayValue(meeting.room || meeting.meeting_room || meeting.room_name),
+    id: realId ? String(realId) : fallbackId,
+    title: titleStr,
+    room: roomName,
     date: formatDisplayValue(meeting.date || meeting.meeting_date),
+    startTime: startTimeRaw,
+    meetingLink: link,
+    platform: platform
   };
 };
 
-const ScheduleItem = ({ time, title, room, status, text, onJoin, onView, roomInfo }) => {
-  const [showTooltip, setShowTooltip] = useState(false);
-
-  return (
-    <div className="flex items-center justify-between py-3 transition-colors hover:bg-gray-50/50 px-2 rounded-lg -mx-2">
-      {/* Meeting Info */}
-      <div className="flex items-center gap-6">
-        <span className="text-sm font-bold text-indigo-600 w-24">{time}</span>
-        <div>
-          <h4 className="text-sm font-bold text-gray-900">{formatDisplayValue(title)}</h4>
-          <p className="text-xs text-gray-500 mt-0.5">{formatDisplayValue(room)}</p>
-        </div>
-      </div>
-
-      {/* Action Buttons & Status Badges */}
-      <div>
-        {status === 'badge' && (
-          <div className="relative inline-block">
-            <button 
-              onMouseEnter={() => setShowTooltip(true)}
-              onMouseLeave={() => setShowTooltip(false)}
-              className="bg-[#F3E8FF] text-[#9333EA] px-2 py-0.5 rounded text-[11px] font-bold border border-[#E9D5FF] flex items-center gap-1 cursor-pointer whitespace-nowrap"
-              aria-label="Meeting is running"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              {roomInfo?.elapsed || text}
-            </button>
-            
-            {showTooltip && (
-              <div className="absolute right-0 top-7 z-20 w-44 p-2 bg-gray-900 text-white text-xs rounded-lg shadow-xl border border-gray-800 animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center gap-1.5 text-emerald-400 font-semibold mb-1">
-                  <Users size={12} /> {roomInfo?.joinedCount || 1} Members
-                </div>
-                <div className="text-gray-300 flex items-center gap-1">
-                  <Clock size={12} /> Started {roomInfo?.elapsed} ago
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {status === 'completed' && (
-          <button 
-            onClick={onView} 
-            className="bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-700 px-2 py-1 rounded text-[11px] font-bold cursor-pointer transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap"
-            title="View Meeting Details"
-          >
-            <CheckCircle2 size={12} className="text-emerald-500" />
-            {text}
-          </button>
-        )}
-        
-        {status === 'primary' && (
-          <button 
-            onClick={onJoin} 
-            className="bg-[#2563EB] hover:bg-blue-700 text-white px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors shadow-sm"
-          >
-            {text}
-          </button>
-        )}
-        
-        {status === 'outline' && (
-          <button 
-            onClick={onView} 
-            className="border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors shadow-sm"
-          >
-            {text}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- Main Component: TodaySchedule ---
-export default function TodaySchedule({ bookedMeetings = [] }) {
+export default function TodaySchedule({ 
+  bookedMeetings = [], 
+  todayMeetings = [], 
+  currentUser, 
+  meetingSessions = {}, 
+  refetchSessions,
+  onSaveSession
+}) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const [sessions, setSessions] = useState(() => {
-    try {
-      const saved = localStorage.getItem('meetingSessions');
-      return saved ? JSON.parse(saved) : {};
-    } catch (e) {
-      console.error("Error parsing meeting sessions:", e);
-      return {};
-    }
-  });
-
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-
-    const handleStorageChange = () => {
-      try {
-        const saved = localStorage.getItem('meetingSessions');
-        if (saved) setSessions(JSON.parse(saved));
-      } catch (e) {
-        console.error("Error reading storage:", e);
-      }
-    };
-
-    handleStorageChange();
-
-    window.addEventListener('storage', handleStorageChange); 
-    window.addEventListener('sync-meeting-sessions', handleStorageChange); 
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('sync-meeting-sessions', handleStorageChange);
-    };
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  const handleJoin = (item) => {
-    const meetingId = item.id;
-    const nowIso = new Date().toISOString();
-
-    const updatedSessions = {
-      ...sessions,
-      [meetingId]: {
-        status: 'running',
-        startedAt: nowIso,
-        stoppedAt: null,
-        room: formatDisplayValue(item.room || item.originalData?.room || 'Unknown Room'),
-        date: formatDisplayValue(item.date || item.originalData?.date || item.originalData?.meeting_date || nowIso.split('T')[0]),
-        originalData: sanitizeMeetingData(item.originalData || item)
-      }
+  useEffect(() => {
+    const handleSessionSync = () => {
+      if (refetchSessions) refetchSessions();
     };
 
-    setSessions(updatedSessions);
-    localStorage.setItem('meetingSessions', JSON.stringify(updatedSessions));
-    const cleanedOriginal = sanitizeMeetingData(item.originalData || item);
-    const meetingWithId = { ...cleanedOriginal, id: meetingId };
+    window.addEventListener('sync-meeting-sessions', handleSessionSync);
 
-    if (meetingWithId?.meetingLink || meetingWithId?.meeting_link) {
-      window.open(meetingWithId.meetingLink || meetingWithId.meeting_link, '_blank');
+    return () => {
+      window.removeEventListener('sync-meeting-sessions', handleSessionSync);
+    };
+  }, [refetchSessions]);
+
+  const getSessionData = (cleanData) => {
+    if (!meetingSessions || typeof meetingSessions !== 'object') return null;
+
+    const targetId = String(cleanData.id || '').trim();
+    const targetTitle = String(cleanData.title || '').trim().toLowerCase();
+
+    const directMatch = meetingSessions[targetId];
+    if (directMatch) {
+      return {
+        ...directMatch,
+        meeting_id: directMatch.meeting_id || targetId,
+        id: directMatch.id || targetId,
+      };
     }
 
-    navigate('/dashboard/meeting-records', { state: { meeting: meetingWithId, mode: 'join' } });
+    const values = Object.values(meetingSessions);
+    const fallbackMatch = values.find((session) => {
+      if (!session) return false;
+      const sessionId = String(session.meeting_id || session.id || session.meetingId || '').trim();
+      const sessionTitle = String(session.title || session.meeting_title || '').trim().toLowerCase();
+      return (targetId && sessionId === targetId) || (targetTitle && sessionTitle === targetTitle);
+    });
+
+    return fallbackMatch || null;
+  };
+
+  const handleJoin = async (e, item) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const cleanData = item.cleanData || sanitizeMeetingData(item.originalData || item);
+    const meetingId = String(item.id || cleanData.id);
+    const meetingWithId = { ...cleanData, id: meetingId };
+
+    try {
+      const startIso = new Date().toISOString();
+      const runningPayload = { status: 'running', actual_started_at: startIso };
+
+      if (onSaveSession) {
+        await onSaveSession(meetingId, runningPayload);
+      }
+
+      if (refetchSessions) refetchSessions();
+    } catch (error) {
+      console.error("❌ Failed to update meeting status to running:", error);
+    }
+
+    const link = (meetingWithId.meetingLink || '').trim();
+    if (link && (link.startsWith('http://') || link.startsWith('https://'))) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    }
+
+    navigate('/dashboard/live-meeting', { 
+      state: { meeting: meetingWithId, mode: 'join' } 
+    });
   };
 
   const handleView = (item) => {
-    const cleanedOriginal = sanitizeMeetingData(item.originalData || item);
-    const meetingWithId = { ...cleanedOriginal, id: item.id };
+    const cleanData = item.cleanData || sanitizeMeetingData(item.originalData || item);
+    const meetingWithId = { ...cleanData, id: String(item.id) };
     navigate('/dashboard/action-items', { state: { meeting: meetingWithId, mode: 'view' } });
   };
 
   const todayDate = getTodayDate();
-
-  const todayFilteredMeetings = bookedMeetings.filter(m => {
+  const rawList = todayMeetings.length > 0 ? todayMeetings : bookedMeetings;
+  
+  const todayFilteredMeetings = rawList.filter(m => {
     const rawDate = m.date || m.meeting_date || '';
+    if (!rawDate) return false;
     return String(rawDate).includes(todayDate) || todayDate.includes(String(rawDate));
   });
 
-  const dynamicScheduleData = todayFilteredMeetings
+  const processedMeetings = todayFilteredMeetings
     .sort((a, b) => {
-      const timeStrA = a.startTime || a.start_time || '00:00';
-      const timeStrB = b.startTime || b.start_time || '00:00';
-      return parseTimeToDate(timeStrA) - parseTimeToDate(timeStrB);
+      const timeStrA = a.startTime || a.start_time || a.time || '';
+      const timeStrB = b.startTime || b.start_time || b.time || '';
+      const dateA = parseTimeToDate(timeStrA);
+      const dateB = parseTimeToDate(timeStrB);
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA - dateB;
     })
-    .map((meeting, index) => {
-      const titleStr = formatDisplayValue(meeting.title || meeting.meeting_title || 'meeting');
-      const meetingId = meeting.id || `meeting_${index}_${titleStr}`.replace(/[^a-zA-Z0-9]/g, '_');
+    .map((meeting) => {
+      const cleanData = sanitizeMeetingData(meeting);
+      const startTimeStr = formatTimeToAMPM(cleanData.startTime);
+      const start = parseTimeToDate(cleanData.startTime);
       
-      const rawStartTime = meeting.startTime || meeting.start_time || '12:00:00';
-      const startTimeStr = formatTimeToAMPM(rawStartTime);
+      const session = getSessionData(cleanData);
+      const normalizedStatus = normalizeMeetingStatus(
+        session?.status || session?.meeting_status || session?.state,
+        session
+      );
+      const rawStatus = String(normalizedStatus || 'none').toLowerCase().trim();
+      const isCompleted = rawStatus === 'stopped' || session?.status === 'stopped';
       
-      const start = parseTimeToDate(rawStartTime);
-      const diffStartMs = start - currentTime;
-      const diffStartMins = Math.floor(diffStartMs / (1000 * 60)); 
+      const startedAt = !isCompleted ? (session?.actual_started_at || session?.started_at || session?.startedAt) : null;
       
-      const session = sessions[meetingId];
+      const isRunning = !isCompleted && (['running', 'active', 'in_progress', 'started', 'live', 'recording'].includes(rawStatus) || Boolean(startedAt));
 
       let status = 'outline';
       let text = 'View';
-      let roomInfo = null;
+      let remainingMins = 0;
 
-      if (session?.status === 'stopped') {
+      if (isCompleted) {
         status = 'completed';
         text = 'Completed';
-      } else if (session?.status === 'running') {
-        const startTimeObj = new Date(session.startedAt);
-        const elapsedMins = Math.max(0, Math.floor((currentTime - startTimeObj) / (1000 * 60)));
+      } else if (isRunning) {
+        const startTimeObj = startedAt ? new Date(startedAt) : currentTime;
+        const diffMs = currentTime - startTimeObj;
+        const elapsedMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+        
         status = 'badge';
-        text = `${elapsedMins} mins`;
-        const memberCount = Array.isArray(meeting.participants)
-          ? meeting.participants.length
-          : typeof meeting.participants === 'number'
-          ? meeting.participants
-          : meeting.attendees?.length || 0;
+        text = formatElapsedDuration(elapsedMins);
+      } else if (start !== null) {
+        const diffStartMs = start - currentTime;
+        const diffStartMins = Math.floor(diffStartMs / (1000 * 60));
+        remainingMins = diffStartMins;
 
-        roomInfo = { 
-          joinedCount: memberCount,
-          elapsed: `${elapsedMins} mins`
-        };
-      } else if (diffStartMins >= -15 && diffStartMins <= 15) {
-        status = 'primary';
-        text = 'Join';
+        if (diffStartMins <= 15) {
+          status = 'primary';
+          text = 'Join';
+        } else {
+          status = 'outline';
+          text = 'View';
+        }
       } else {
         status = 'outline';
         text = 'View';
       }
 
+      const participantsList = Array.isArray(meeting.participants) ? meeting.participants : Array.isArray(meeting.attendees) ? meeting.attendees : [];
+
       return {
-        id: meetingId,
-        time: startTimeStr,
-        title: meeting.title || meeting.meeting_title || 'Untitled Meeting',
-        room: meeting.room || meeting.meeting_room || 'Main Room',
+        id: cleanData.id,
+        time: startTimeStr || 'TBD',
+        title: cleanData.title,
+        room: cleanData.room,
         status,
         text,
-        roomInfo,
-        originalData: meeting
+        remainingMins,
+        participants: participantsList,
+        originalData: meeting,
+        cleanData: cleanData
       };
     });
 
+  const isScrollable = processedMeetings.length > 3;
+
   return (
-    <div className="bg-white p-6 sm:p-7 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
-      <h3 className="text-base font-bold text-gray-900 mb-4 tracking-tight">Today's Schedule</h3>
-      
-      <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto pr-3 custom-scrollbar flex-1">
-        {dynamicScheduleData.length > 0 ? (
-          dynamicScheduleData.map((item) => (
-            <ScheduleItem 
-              key={item.id} 
-              {...item} 
-              onJoin={() => handleJoin(item)} 
-              onView={() => handleView(item)} 
-            />
-          ))
+    <div className="bg-white rounded-2xl p-3.5 sm:p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-auto sm:h-full relative">
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between mb-3 sm:mb-3.5 shrink-0">
+          <h2 className="text-sm sm:text-base font-bold text-gray-900">Today's Schedule</h2>
+          <button onClick={() => navigate('/dashboard/my-meetings')} className="text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 transition-colors cursor-pointer">
+            View all <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </button>
+        </div>
+
+        {processedMeetings.length > 0 ? (
+          <div className={`space-y-2 sm:space-y-2.5 ${isScrollable ? 'max-h-[240px] sm:max-h-[320px] overflow-y-auto pr-1' : ''}`}>
+            {processedMeetings.map((m) => {
+              const extraParticipantsCount = m.participants.length > 3 ? m.participants.length - 3 : 0;
+              return (
+                <div key={m.id} className="flex items-start gap-2.5 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
+                  <div className="text-left shrink-0 w-14 sm:w-16">
+                    <p className="text-[11px] sm:text-xs font-bold text-gray-900">{m.time}</p>
+                    <p className="text-[9px] sm:text-[10px] font-medium text-gray-400 mt-0.5">
+                      {m.status === 'badge' ? (
+                        <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live
+                        </span>
+                      ) : m.status === 'completed' ? (
+                        <span className="text-emerald-600 font-semibold">Done</span>
+                      ) : (
+                        m.remainingMins > 0 ? `In ${m.remainingMins}m` : (m.remainingMins < 0 ? 'Late' : 'Starting')
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-0.5 bg-indigo-600 rounded-full shrink-0 self-stretch my-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">{m.title}</h4>
+                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                      <MapPin className="w-3 h-3 text-gray-400 shrink-0" />
+                      <span className="truncate">{m.room}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {m.participants.length > 0 ? (
+                          <div className="flex -space-x-1.5 overflow-hidden">
+                            {m.participants.slice(0, 3).map((p, pIdx) => {
+                              const nameStr = typeof p === 'string' ? p : p.name || p.email || 'U';
+                              const initials = nameStr.substring(0, 2).toUpperCase();
+                              return (
+                                <div key={pIdx} className="flex h-4 sm:h-5 w-4 sm:w-5 rounded-full bg-indigo-600 text-white text-[8px] sm:text-[9px] font-bold items-center justify-center ring-2 ring-white">
+                                  {initials}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-[9px] sm:text-[10px] text-gray-400">No attendees</span>
+                        )}
+                        {extraParticipantsCount > 0 && (
+                          <span className="text-[9px] sm:text-[10px] font-semibold text-gray-400 ml-0.5">+{extraParticipantsCount}</span>
+                        )}
+                      </div>
+                      <div className="shrink-0">
+                        {m.status === 'primary' && (
+                          <button onClick={(e) => handleJoin(e, m)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors shadow-sm cursor-pointer">
+                            Join
+                          </button>
+                        )}
+                        {m.status === 'badge' && (
+                          <div className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded text-[9px] sm:text-xs font-bold select-none">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {m.text}
+                          </div>
+                        )}
+                        {m.status === 'completed' && (
+                          <button onClick={() => handleView(m)} className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 px-1.5 py-0.5 sm:px-2.5 sm:py-0.5 rounded text-[9px] sm:text-xs font-bold transition-colors cursor-pointer">
+                            <CheckCircle2 size={12} /> Done
+                          </button>
+                        )}
+                        {m.status === 'outline' && (
+                          <button onClick={() => handleView(m)} className="text-gray-500 hover:text-indigo-600 text-[10px] sm:text-xs font-semibold transition-colors px-1 cursor-pointer">
+                            View
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-            <div className="bg-gray-50 p-3 rounded-full mb-3">
-              <Clock size={20} className="text-gray-400" />
+          <div className="flex-1 flex flex-col items-center justify-center min-h-[120px] sm:min-h-[240px] p-3.5 sm:p-6 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-2">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <p className="text-sm font-medium text-gray-900">No meetings today</p>
-            <p className="text-xs text-gray-500 mt-1">Take a break or schedule a new one.</p>
+            <p className="text-xs sm:text-sm font-bold text-gray-800">No meetings scheduled for today</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Your schedule is completely clear.</p>
           </div>
         )}
       </div>

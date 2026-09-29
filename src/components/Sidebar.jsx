@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, BookOpen, Lightbulb, DoorOpen, Mic, 
   CheckSquare, Calendar, BarChart3, Settings, LogOut, 
-  MoreHorizontal, X 
+  MoreHorizontal, X, Radio
 } from 'lucide-react';
 
 const MenuItem = ({ path, icon: Icon, label, currentPath, onClick }) => {
@@ -18,14 +18,19 @@ const MenuItem = ({ path, icon: Icon, label, currentPath, onClick }) => {
   return (
     <button 
       onClick={handleClick} 
-      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
         isActive 
           ? 'bg-indigo-50 text-indigo-600' 
           : 'text-slate-700 hover:bg-slate-50 hover:text-indigo-600'
       }`}
     >
-      <Icon strokeWidth={2} className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-      {label}
+      <div className="flex items-center gap-2.5">
+        <Icon strokeWidth={2} className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+        <span>{label}</span>
+      </div>
+      {path === '/dashboard/live-meeting' && isActive && (
+        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+      )}
     </button>
   );
 };
@@ -34,12 +39,29 @@ export default function Sidebar({ user, profileImage }) {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
-  const displayName = user?.name || user?.fullName || "User";
-  const position = user?.position || user?.role || "Member";
+  
+  const [cachedUser] = useState(() => {
+    try {
+      const savedCurrentUser = localStorage.getItem('currentUser');
+      if (savedCurrentUser) return JSON.parse(savedCurrentUser);
+      
+      const savedAuthUser = localStorage.getItem('authUser');
+      if (savedAuthUser) return JSON.parse(savedAuthUser);
+    } catch (e) {
+      console.error("Error parsing user from localStorage:", e);
+    }
+    return null;
+  });
+
+  const activeUser = user || cachedUser;
+  
+  const displayName = activeUser?.name || activeUser?.fullName || "User";
+  const position = activeUser?.position || activeUser?.role || "Member";
 
   const [showMore, setShowMore] = useState(false);
 
   const handleLogout = () => {
+    localStorage.removeItem('currentUser');
     localStorage.removeItem('authUser'); 
     localStorage.removeItem('savedProfileImage'); 
     navigate('/'); 
@@ -57,6 +79,7 @@ export default function Sidebar({ user, profileImage }) {
     { path: '/dashboard/meeting-rooms', label: 'Rooms', icon: DoorOpen },
   ];
   const secondaryMobileNavs = [
+    { path: '/dashboard/live-meeting', label: 'Live Meeting', icon: Radio },
     { path: '/dashboard/meeting-records', label: 'Meeting Records', icon: Mic },
     { path: '/dashboard/action-items', label: 'Action Items', icon: CheckSquare },
     { path: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
@@ -86,6 +109,8 @@ export default function Sidebar({ user, profileImage }) {
           <MenuItem path="/dashboard/my-meetings" icon={BookOpen} label="My Meetings" currentPath={currentPath} />
           <MenuItem path="/dashboard/book-meeting" icon={Lightbulb} label="Book Meeting" currentPath={currentPath} />
           <MenuItem path="/dashboard/meeting-rooms" icon={DoorOpen} label="Meeting Rooms" currentPath={currentPath} />
+          <MenuItem path="/dashboard/live-meeting" icon={Radio} label="Live Meeting" currentPath={currentPath} />
+          
           <MenuItem path="/dashboard/meeting-records" icon={Mic} label="Meeting Records" currentPath={currentPath} />
           <MenuItem path="/dashboard/action-items" icon={CheckSquare} label="Action Items" currentPath={currentPath} />
           <MenuItem path="/dashboard/calendar" icon={Calendar} label="Calendar" currentPath={currentPath} />
@@ -108,7 +133,7 @@ export default function Sidebar({ user, profileImage }) {
           
           <button 
             onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full py-1.5 px-3 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-1.5 px-3 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             Logout
@@ -117,7 +142,6 @@ export default function Sidebar({ user, profileImage }) {
       </aside>
 
       <div className="md:hidden">
-        {/* Dark Overlay Background */}
         {showMore && (
           <div 
             className="fixed inset-0 bg-black/40 z-50 transition-opacity" 
@@ -146,14 +170,19 @@ export default function Sidebar({ user, profileImage }) {
                 <button
                   key={item.path}
                   onClick={() => handleMobileNav(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                     isActive 
                       ? 'bg-indigo-50 text-indigo-600' 
                       : 'text-slate-700 hover:bg-slate-50 hover:text-indigo-600'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                  {item.label}
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.path === '/dashboard/live-meeting' && isActive && (
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  )}
                 </button>
               );
             })}
@@ -181,9 +210,6 @@ export default function Sidebar({ user, profileImage }) {
                   isActive ? 'text-indigo-600 font-semibold' : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
-                {isActive && (
-                  <span className="absolute top-0 w-8 h-1 bg-indigo-600 rounded-b-full" />
-                )}
                 <Icon className={`w-5 h-5 mb-1 ${isActive ? 'text-indigo-600' : 'text-gray-400'}`} />
                 <span>{item.label}</span>
               </button>
@@ -195,9 +221,6 @@ export default function Sidebar({ user, profileImage }) {
               showMore || isSecondaryActive ? 'text-indigo-600 font-semibold' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            {(showMore || isSecondaryActive) && (
-              <span className="absolute top-0 w-8 h-1 bg-indigo-600 rounded-b-full" />
-            )}
             <MoreHorizontal className={`w-5 h-5 mb-1 ${showMore || isSecondaryActive ? 'text-indigo-600' : 'text-gray-400'}`} />
             <span>More</span>
           </button>

@@ -1,18 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 
-export default function Dashboard() {
+export default function Dashboard({ currentUser }) {
   const location = useLocation();
-  const [user] = useState(() => {
-    if (location.state?.user) {
-      localStorage.setItem('currentUser', JSON.stringify(location.state.user));
-      return location.state.user;
+  const [user, setUser] = useState(() => {
+    let rawUser = currentUser || location.state?.user || JSON.parse(localStorage.getItem('currentUser')) || null;
+    if (Array.isArray(rawUser)) {
+      rawUser = rawUser[0] || null;
     }
-    const savedUser = localStorage.getItem('currentUser');
-    return savedUser ? JSON.parse(savedUser) : null;
+    return rawUser;
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      let normalizedUser = currentUser;
+      if (Array.isArray(normalizedUser)) {
+        normalizedUser = normalizedUser[0] || null;
+      }
+      setUser(normalizedUser);
+      if (normalizedUser) {
+        localStorage.setItem('currentUser', JSON.stringify(normalizedUser));
+      }
+    }
+  }, [currentUser]);
 
   const [profileImage, setProfileImage] = useState(() => {
     if (user?.image) return user.image;

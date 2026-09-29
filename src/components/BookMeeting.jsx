@@ -33,7 +33,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
 
   const API_BASE_URL = import.meta.env?.VITE_API_URL || 
     (typeof process !== 'undefined' ? process.env?.REACT_APP_API_URL : '') || 
-    'http://localhost:8000';
+    'http://192.168.57.191:8000';
 
   const showAlert = (icon, title, text) => {
     Swal.fire({
@@ -183,8 +183,8 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
   const activeBookedMeetings = bookedMeetings.length > 0 ? bookedMeetings : fetchedMeetings;
 
   return (
-    <div className="max-w-[1400px] mx-auto p-4">
-      <div className="mb-4">
+    <div className="max-w-[1400px] mx-auto p-1">
+      <div className="mb-1.5">
         <h2 className="text-2xl font-bold text-gray-900">Book a Meeting</h2>
         <p className="text-gray-500 text-sm mt-0.5">Schedule a new meeting</p>
       </div>

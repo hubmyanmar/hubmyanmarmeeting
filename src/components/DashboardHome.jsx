@@ -1,11 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+
+import { normalizeMeetingStatus } from '../utils/meetingSessionState';
+import DashboardHeader from './DashboardHeader';
 import TopStats from './TopStats';
 import TodaySchedule from './TodaySchedule';
-import AiSummaryBanner from './AiSummaryBanner';
-import RightSidebar from './RightSidebar';
-import BottomMetrics from './BottomMetrics';
+import RoomAvailability from './RoomAvailability';
+import QuickActions from './QuickActions';
 
+// --- Helper Functions ---
 const getTodayDateString = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -19,16 +22,62 @@ const formatDisplayValue = (val, fallback = '') => {
   return String(val);
 };
 
+const getMeetingId = (m) => {
+  const rawId = m.id || m._id || m.meeting_id;
+  if (rawId) return String(rawId);
+  const mTitle = formatDisplayValue(m.title || 'meeting');
+  const mTime = formatDisplayValue(m.start_time || m.startTime || '');
+  return `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
+};
+
+const getSessionStatus = (meetingId, meetingSessions) => {
+  if (!meetingSessions) return null;
+  const targetId = String(meetingId || '').trim();
+
+  const getMatch = (session) => {
+    if (!session) return false;
+    const sessionId = String(session?.meeting_id || session?.id || session?.meetingId || '').trim();
+    return (!targetId || !sessionId) ? false : sessionId === targetId;
+  };
+
+  if (Array.isArray(meetingSessions)) {
+    const found = meetingSessions.find(getMatch) || meetingSessions.find(s => String(s?.meeting_id || s?.id || s?.meetingId || '').includes(targetId));
+    return normalizeMeetingStatus(found?.status || found?.meeting_status || found?.state, found);
+  }
+
+  if (typeof meetingSessions === 'object') {
+    if (meetingSessions[targetId]) {
+      return normalizeMeetingStatus(meetingSessions[targetId]?.status || meetingSessions[targetId]?.meeting_status || meetingSessions[targetId]?.state, meetingSessions[targetId]);
+    }
+
+    const values = Object.values(meetingSessions);
+    const found = values.find(getMatch) || values.find(s => String(s?.meeting_id || s?.id || s?.meetingId || '').includes(targetId));
+    return normalizeMeetingStatus(found?.status || found?.meeting_status || found?.state, found);
+  }
+
+  return null;
+};
+
 export default function DashboardHome({ 
   bookedMeetings: rawBookedMeetings = [], 
+  meetingRooms = [],
   currentUser: propUser,
-  meetingSessions = {} 
+  meetingSessions = {},
+  refetchSessions,
+  onSaveSession
 }) {
   const location = useLocation();
-  const [currentUser] = useState(
+  
+  const [currentUser, setCurrentUser] = useState(
     propUser || location.state?.user || null
   );
-  
+
+  useEffect(() => {
+    if (propUser) {
+      setCurrentUser(propUser);
+    }
+  }, [propUser]);
+
   const bookedMeetings = useMemo(() => {
     return Array.isArray(rawBookedMeetings) ? rawBookedMeetings.map(m => ({
       ...m,
@@ -40,27 +89,27 @@ export default function DashboardHome({
 
   const { todayMeetings, upcomingMeetings, pendingCount, overdueCount } = useMemo(() => {
     const todayStr = getTodayDateString(); 
+
     const today = bookedMeetings.filter(m => {
       const mDate = formatDisplayValue(m.date || m.meeting_date);
+      if (!mDate) return false;
       return mDate.includes(todayStr) || todayStr.includes(mDate);
     });
+
     const upcoming = bookedMeetings.filter(m => {
       const mDate = formatDisplayValue(m.date || m.meeting_date);
       return mDate && mDate > todayStr;
     });
+
     const completedCount = today.filter(m => {
-      const mTitle = formatDisplayValue(m.title || 'meeting');
-      const mTime = formatDisplayValue(m.start_time || m.startTime || '');
-      const id = m.id || `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
-      return meetingSessions[id]?.status === 'stopped';
+      const id = getMeetingId(m);
+      return getSessionStatus(id, meetingSessions) === 'stopped';
     }).length;
+
     const overdue = bookedMeetings.filter(m => {
       const mDate = formatDisplayValue(m.date || m.meeting_date);
-      const mTitle = formatDisplayValue(m.title || 'meeting');
-      const mTime = formatDisplayValue(m.start_time || m.startTime || '');
-      const id = m.id || `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
-      
-      const status = meetingSessions[id]?.status;
+      const id = getMeetingId(m);
+      const status = getSessionStatus(id, meetingSessions);
       return mDate && mDate < todayStr && status !== 'stopped';
     }).length;
 
@@ -73,8 +122,12 @@ export default function DashboardHome({
   }, [bookedMeetings, meetingSessions]);
 
   return (
-    <div className="max-w-[1400px] mx-auto flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
+    <div className="w-full flex flex-col gap-2 p-1 sm:p-2 bg-slate-50/50 min-h-screen">
       
+      {/* Header Bar */}
+      <DashboardHeader currentUser={currentUser} />
+
+      {/* Top 4 Stats Cards */}
       <TopStats 
         todayCount={todayMeetings.length} 
         upcomingCount={upcomingMeetings.length}
@@ -82,18 +135,34 @@ export default function DashboardHome({
         overdueCount={overdueCount} 
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <TodaySchedule bookedMeetings={todayMeetings} currentUser={currentUser} />
-          <AiSummaryBanner />
+      {/* Main Grid Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        {/* Today's Schedule */}
+        <div className="lg:col-span-4">
+          <TodaySchedule 
+            bookedMeetings={bookedMeetings}
+            todayMeetings={todayMeetings} 
+            currentUser={currentUser} 
+            meetingSessions={meetingSessions}
+            refetchSessions={refetchSessions}
+            onSaveSession={onSaveSession}
+          />
         </div>
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          <RightSidebar upcomingMeetings={upcomingMeetings} />
+
+        {/* Room Availability */}
+        <div className="lg:col-span-5">
+          <RoomAvailability 
+            bookedMeetings={bookedMeetings} 
+            meetingRooms={meetingRooms} 
+          />
+        </div>
+
+        {/* Quick Actions */}
+        <div className="lg:col-span-3">
+          <QuickActions />
         </div>
       </div>
-      
-      <BottomMetrics bookedMeetings={bookedMeetings} meetingSessions={meetingSessions} />
-      
+
     </div>
   );
 }

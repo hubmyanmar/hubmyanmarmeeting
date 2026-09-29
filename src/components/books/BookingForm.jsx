@@ -83,7 +83,7 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
 
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://192.168.57.191:8000';
   
   const fetchRooms = useCallback(async (abortSignal) => {
     setIsRoomsLoading(true);
@@ -238,141 +238,173 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
   const isOnlineMeeting = data?.meetingType?.toLowerCase() === "online";
 
   return (
-    <div className="flex-1 flex flex-col gap-5 bg-white p-2">
+    <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xs border border-gray-100 p-4 sm:p-5 flex flex-col gap-4">
       {/* Title */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">
           Meeting Title <span className="text-red-500">*</span>
         </label>
         <input 
           type="text" name="title" value={data?.title || ""} onChange={handleChange}
           placeholder="e.g. BD Strategy Discussion"
-          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 placeholder-gray-400 transition-all"
         />
       </div>
 
       {/* Purpose */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Purpose / Agenda</label>
+        <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">Purpose / Agenda</label>
         <input 
           type="text" name="purpose" value={data?.purpose || ""} onChange={handleChange}
           placeholder="e.g. Discuss about new partnership and Q2 plan"
-          className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 placeholder-gray-400 transition-all"
         />
       </div>
 
-      {/* Date & Time Row */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-          <input 
-            type="date" name="date" value={data?.date || getTodayDate()} 
-            min={getTodayDate()} 
-            onChange={handleChange}
-            style={{ colorScheme: "light" }} 
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-          />
+      {/* Date & Time Section */}
+      <div className="flex flex-col gap-3">
+        {/* Date Row */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">Date</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none z-10 text-gray-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+            <input 
+              type="date" name="date" value={data?.date || getTodayDate()} 
+              min={getTodayDate()} 
+              onChange={handleChange}
+              onClick={(e) => e.target.showPicker && e.target.showPicker()}
+              style={{ colorScheme: "light" }} 
+              className="w-full border border-gray-200 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 cursor-pointer text-gray-800 font-medium transition-all"
+            />
+          </div>
         </div>
 
-        <div className="flex-[2]">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-          <div className="flex items-center gap-2">
+        {/* Time Row */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Start Time */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">Start Time</label>
             <input 
-              type="time" name="startTime" value={formatTo24Hour(data?.startTime) || "09:00"} onChange={handleTimeChange} 
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 font-medium cursor-pointer"
+              type="time" name="startTime" value={formatTo24Hour(data?.startTime) || "09:00"} 
+              onChange={handleTimeChange}
+              onClick={(e) => e.target.showPicker && e.target.showPicker()}
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 font-medium cursor-pointer transition-all"
             />
-            <span className="text-gray-500 text-sm">to</span>
+          </div>
+          
+          {/* End Time */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">End Time</label>
             <input 
-              type="time" name="endTime" value={formatTo24Hour(data?.endTime) || "10:00"} onChange={handleTimeChange} 
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-700 font-medium cursor-pointer"
+              type="time" name="endTime" value={formatTo24Hour(data?.endTime) || "10:00"} 
+              onChange={handleTimeChange}
+              onClick={(e) => e.target.showPicker && e.target.showPicker()}
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 font-medium cursor-pointer transition-all"
             />
           </div>
         </div>
       </div>
 
       {/* Meeting Type */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="w-full">
+          <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">
             Meeting Type <span className="text-red-500">*</span>
           </label>
-          <select 
-            name="meetingType" 
-            value={data?.meetingType ? data.meetingType.toLowerCase() : "face to face"} 
-            onChange={handleChange} 
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-          >
-            <option value="face to face">Face to Face</option>
-            <option value="online">Online</option>
-          </select>
+          <div className="relative">
+            <select 
+              name="meetingType" 
+              value={data?.meetingType ? data.meetingType.toLowerCase() : "face to face"} 
+              onChange={handleChange} 
+              className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 cursor-pointer appearance-none text-gray-800 transition-all pr-8"
+            >
+              <option value="face to face">Face to Face</option>
+              <option value="online">Online</option>
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
         </div>
 
         {isOnlineMeeting && (
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="w-full">
+            <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">
               Platform <span className="text-red-500">*</span>
             </label>
-            <select 
-              name="platform" value={data?.platform || ""} onChange={handleChange} 
-              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-            >
-              <option value="" disabled>Select Platform</option>
-              <option value="Zoom">Zoom</option>
-              <option value="Zoho Cliq">Zoho Cliq</option>
-              <option value="Other">Other</option>
-            </select>
+            <div className="relative">
+              <select 
+                name="platform" value={data?.platform || ""} onChange={handleChange} 
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 cursor-pointer appearance-none text-gray-800 transition-all pr-8"
+              >
+                <option value="" disabled>Select Platform</option>
+                <option value="Zoom">Zoom</option>
+                <option value="Zoho Cliq">Zoho Cliq</option>
+                <option value="Other">Other</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
       {/* Meeting Room Dropdown */}
       <div>
-        <div className="flex justify-between items-center mb-1">
-          <label className="block text-sm font-medium text-gray-700">
-            Meeting Room {isOnlineMeeting ? (
-              <span className="text-gray-400 font-normal">(Optional for Online)</span>
-            ) : (
-              <span className="text-red-500">*</span>
-            )}
-          </label>
+        <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">
+          Meeting Room {isOnlineMeeting ? (
+            <span className="text-gray-400 font-normal lowercase">(optional)</span>
+          ) : (
+            <span className="text-red-500">*</span>
+          )}
+        </label>
+
+        <div className="relative">
+          <select 
+            name="room" value={data?.room || ""} onChange={handleChange} 
+            disabled={isRoomsLoading || !!roomError}
+            className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 bg-gray-50/40 cursor-pointer appearance-none pr-8 transition-all disabled:bg-gray-100 ${
+              roomError ? 'border-red-300 focus:ring-red-500/20 text-red-600' : 'border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500 text-gray-800'
+            }`}
+          >
+            {isRoomsLoading && <option value="">Loading rooms...</option>}
+            {roomError && <option value="" disabled>{roomError}</option>}
+            {!isRoomsLoading && !roomError && rooms.length === 0 && <option value="" disabled>No rooms available</option>}
+            {!isRoomsLoading && !roomError && rooms.length > 0 && <option value="">Select a Room</option>}
+
+            {!isRoomsLoading && !roomError && rooms.map((room) => {
+              const roomName = room.name || room.room_name || `Room ${room.id}`;
+              const blocked = isRoomBlocked(room.id, roomName);
+              return (
+                <option key={room.id} value={room.id} disabled={blocked}>
+                  {roomName} {blocked ? "(Unavailable at this time)" : ""}
+                </option>
+              );
+            })}
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
         </div>
-
-        <select 
-          name="room" value={data?.room || ""} onChange={handleChange} 
-          disabled={isRoomsLoading || !!roomError}
-          className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 bg-white cursor-pointer disabled:bg-gray-100 ${
-            roomError ? 'border-red-300 focus:ring-red-500 text-red-600' : 'border-gray-200 focus:ring-indigo-500'
-          }`}
-        >
-          {isRoomsLoading && <option value="">Loading rooms...</option>}
-          {roomError && <option value="" disabled>{roomError}</option>}
-          {!isRoomsLoading && !roomError && rooms.length === 0 && <option value="" disabled>No rooms available</option>}
-          {!isRoomsLoading && !roomError && rooms.length > 0 && <option value="">Select a Room</option>}
-
-          {!isRoomsLoading && !roomError && rooms.map((room) => {
-            const roomName = room.name || room.room_name || `Room ${room.id}`;
-            const blocked = isRoomBlocked(room.id, roomName);
-            return (
-              <option key={room.id} value={room.id} disabled={blocked}>
-                {roomName} {blocked ? "(Unavailable at this time)" : ""}
-              </option>
-            );
-          })}
-        </select>
       </div>
       
       {/* Company Name */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">
           Company Name <span className="text-red-500">*</span>
         </label>
         {data?.company && (
           <div className="flex items-center mb-2">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 shadow-2xs">
               {data.company}
               <button 
                 type="button" onClick={() => setData(prev => ({ ...prev, company: "" }))}
-                className="w-4 h-4 rounded-full hover:bg-indigo-200 text-indigo-500 flex items-center justify-center text-xs"
+                className="w-4 h-4 rounded-full hover:bg-indigo-200 text-indigo-500 flex items-center justify-center text-xs transition-colors"
               >&times;</button>
             </span>
           </div>
@@ -389,10 +421,10 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
               setShowCompanySuggestions(true);
             }}
             onFocus={() => setShowCompanySuggestions(true)}
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
+            className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 placeholder-gray-400 transition-all"
           />
           {showCompanySuggestions && availableCompanySuggestions.length > 0 && (
-            <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+            <ul className="absolute z-30 w-full bg-white border border-gray-100 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto divide-y divide-gray-50">
               {availableCompanySuggestions.map((companyName, idx) => (
                 <li 
                   key={idx} 
@@ -401,7 +433,7 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
                     setCompanyInput("");
                     setShowCompanySuggestions(false);
                   }}
-                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer"
+                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
                 >
                   {companyName}
                 </li>
@@ -413,18 +445,18 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
 
       {/* Participants */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Participants</label>
+        <label className="block text-xs font-semibold text-slate-700 tracking-wide uppercase mb-1.5">Participants</label>
         
         {data?.participants?.length > 0 && (
-          <div className="flex items-center mb-3 -space-x-2">
+          <div className="flex items-center mb-2.5 -space-x-2">
             {visibleParticipants.map((p, i) => (
-              <div key={i} className="relative group cursor-pointer z-10 hover:z-20" title={p.name}>
-                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold border-2 border-white shadow-sm">
+              <div key={i} className="relative group cursor-pointer z-10 hover:z-20 transition-transform hover:-translate-y-0.5" title={p.name}>
+                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold border-2 border-white shadow-2xs">
                   {getInitials(p.name)}
                 </div>
                 <button 
                   onClick={() => handleRemoveParticipant(i)}
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center z-10"
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center z-10 transition-opacity"
                 >&times;</button>
               </div>
             ))}
@@ -433,7 +465,7 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
               <div className="relative z-10 hover:z-20">
                 <div 
                   onClick={() => setShowOverflow(!showOverflow)}
-                  className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white shadow-sm cursor-pointer hover:bg-gray-200"
+                  className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-medium border-2 border-white shadow-2xs cursor-pointer hover:bg-gray-200 transition-colors"
                 >
                   +{remainingCount}
                 </div>
@@ -450,19 +482,19 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
             onChange={(e) => { setInviteeInput(e.target.value); setShowSuggestions(true); }}
             onFocus={() => setShowSuggestions(true)}
             onKeyDown={handleAddParticipantEnter}
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50"
+            className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 placeholder-gray-400 transition-all"
           />
           
           {showSuggestions && availableSuggestions.length > 0 && (
-            <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+            <ul className="absolute z-30 w-full bg-white border border-gray-100 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto divide-y divide-gray-50">
               {availableSuggestions.map((user, idx) => (
                 <li 
                   key={idx} 
                   onClick={() => handleSelectParticipant(user)}
-                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer"
+                  className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
                 >
-                  <div className="font-medium">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
+                  <div className="font-medium text-gray-900">{user.name}</div>
+                  <div className="text-xs text-gray-400">{user.email}</div>
                 </li>
               ))}
             </ul>
@@ -471,25 +503,25 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
       </div>
 
       {/* Checkbox */}
-      <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center gap-2.5 pt-1">
         <input 
           type="checkbox" id="invite-cliq" name="inviteCliq" checked={data?.inviteCliq || false} onChange={handleChange} 
-          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer" 
+          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500/20 cursor-pointer accent-[#4F39F6]" 
         />
-        <label htmlFor="invite-cliq" className="text-sm text-gray-700 cursor-pointer select-none">Send invitation via Zoho Cliq</label>
+        <label htmlFor="invite-cliq" className="text-sm font-medium text-gray-700 cursor-pointer select-none">Send invitation via Zoho Cliq</label>
       </div>
 
-      {/* Buttons */}
-      <div className="flex gap-4 mt-2">
+      {/* Action Buttons */}
+      <div className="flex gap-3 pt-2">
         <button 
           type="button" onClick={onClear} disabled={isLoading}
-          className="flex-1 py-2.5 border border-indigo-200 text-indigo-600 font-medium rounded-lg hover:bg-indigo-50 transition disabled:opacity-50"
+          className="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold text-sm rounded-xl hover:bg-gray-50 transition-all active:scale-[0.98] disabled:opacity-50"
         >
           Clear
         </button>
         <button 
           type="button" onClick={onBook} disabled={isLoading}
-          className="flex-1 py-2.5 bg-[#4F39F6] text-white font-medium rounded-lg hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
+          className="flex-1 py-3 bg-[#4F39F6] text-white font-semibold text-sm rounded-xl hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
         >
           {isLoading ? 'Booking...' : 'Book Meeting'}
         </button>

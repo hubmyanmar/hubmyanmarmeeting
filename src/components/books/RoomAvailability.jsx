@@ -64,10 +64,6 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
   const currentViewDate = data?.date || todayStr;
 
   const activeBookings = bookedMeetings;
-  // console.log("--- DEBUG ROOM AVAILABILITY ---");
-  // console.log("Current View Date:", currentViewDate);
-  // console.log("Rooms from DB:", rooms);
-  // console.log("Booked Meetings from DB:", activeBookings);
 
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
@@ -94,15 +90,15 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
   };
 
   return (
-    <div className="flex-1 bg-white">
+    <div className="flex-1 bg-white pt-1 pb-9 mb-3">
       <h3 className="text-lg font-semibold text-gray-900 mb-1">Room Availability</h3>
       
       {/* Date Navigation Control */}
-      <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg p-2.5 mt-3 mb-5 shadow-sm">
+      <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl p-2.5 mt-3 mb-5 shadow-xs">
         <button 
           type="button"
           onClick={() => handleDateChange(-1)}
-          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors cursor-pointer"
+          className="p-1.5 hover:bg-gray-200/70 active:scale-95 rounded-lg text-gray-600 transition-all cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
@@ -116,7 +112,7 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
         <button 
           type="button"
           onClick={() => handleDateChange(1)}
-          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors cursor-pointer"
+          className="p-1.5 hover:bg-gray-200/70 active:scale-95 rounded-lg text-gray-600 transition-all cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
@@ -134,7 +130,7 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
         ))}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3.5 pb-4">
         {rooms.length === 0 ? (
           <div className="text-center py-6 text-xs text-gray-400">
             Database မှ အခန်းစာရင်းများ ရယူနေပါသည်...
@@ -167,18 +163,18 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
 
             let cardStyle = "p-3.5 rounded-xl border-2 transition-all ";
             if (isConflict) {
-              cardStyle += "bg-red-50/70 border-red-200 opacity-90 cursor-not-allowed pointer-events-none select-none";
+              cardStyle += "bg-amber-50/60 border-amber-200 opacity-90 cursor-not-allowed pointer-events-none select-none";
             } else if (isSelected) {
-              cardStyle += "bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm cursor-pointer";
+              cardStyle += "bg-indigo-50/80 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs cursor-pointer";
             } else {
               cardStyle += "bg-emerald-50/30 border-emerald-200 hover:border-emerald-400 cursor-pointer";
             }
 
             return (
               <div key={room.id || idx} onClick={() => !isConflict && handleSelectRoom(room)} className={cardStyle}>
-                <div className="flex justify-between items-center mb-2.5">
+                <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
-                    <span className={`font-semibold text-sm ${isConflict ? "text-red-700" : "text-gray-800"}`}>
+                    <span className={`font-semibold text-sm ${isConflict ? "text-amber-800" : "text-gray-800"}`}>
                       {roomName}
                     </span>
                     {roomCapacity && (
@@ -186,15 +182,17 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
                     )}
                   </div>
                   {isConflict ? (
-                    <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded">Booked / Busy</span>
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      Booked / Busy
+                    </span>
                   ) : isSelected ? (
-                    <span className="text-[10px] font-semibold text-white bg-indigo-600 px-2.5 py-0.5 rounded shadow-sm">Selected</span>
+                    <span className="text-[10px] font-semibold text-white bg-indigo-600 px-2.5 py-0.5 rounded-md shadow-xs">Selected</span>
                   ) : (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">Available</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">Available</span>
                   )}
                 </div>
 
-                <div className="relative w-full h-5 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
+                <div className="relative w-full h-4 bg-gray-100 rounded-lg overflow-hidden border border-gray-200/80">
                   {roomBookings.map((b, bIdx) => {
                     const info = getBookingInfo(b);
                     const bStart = parseTime(info.startTime);
@@ -204,10 +202,15 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
 
                     return (
                       <div 
-                        key={bIdx} title={`Booked: ${info.startTime} - ${info.endTime}`}
+                        key={bIdx} 
+                        title={`Booked: ${info.startTime} - ${info.endTime}`}
                         style={{ left: `${left}%`, width: `${width}%` }}
-                        className="absolute top-0 bottom-0 bg-red-500 border-r border-white/50 z-10"
-                      />
+                        className="absolute top-0 bottom-0 bg-amber-500 bg-[linear-gradient(135deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:8px_8px] border-r border-white/40 z-10 flex items-center justify-center overflow-hidden"
+                      >
+                        <svg className="w-2.5 h-2.5 text-amber-950/80 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
                     );
                   })}
 
@@ -215,7 +218,7 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
                     <div 
                       style={{ left: `${userSelectLeft}%`, width: `${userSelectWidth}%` }}
                       className={`absolute top-0 bottom-0 transition-all z-20 ${
-                        isSelected ? "bg-indigo-600 border-2 border-indigo-800 shadow-md" : "bg-emerald-500 border border-emerald-600"
+                        isSelected ? "bg-indigo-600 border-2 border-indigo-800 shadow-xs" : "bg-emerald-500 border border-emerald-600"
                       }`}
                     />
                   )}

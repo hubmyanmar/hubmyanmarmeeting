@@ -1,68 +1,74 @@
 import React from 'react';
-import { Calendar, Clock, ClipboardCheck, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, ClipboardCheck, AlertCircle, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// --- Sub Component ---
-const StatCard = ({ title, count, icon, bg, color = "text-gray-900", linkColor = "text-indigo-600", onViewAll }) => (
-  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-start">
-    <div>
-      <h3 className="text-[13px] font-semibold text-indigo-900/60 mb-2">{title}</h3>
-      <p className={`text-[32px] font-bold leading-none ${color}`}>{count}</p>
-      <button 
-        onClick={onViewAll} 
-        className={`text-xs mt-4 font-bold ${linkColor} hover:underline cursor-pointer`}
-      >
-        View all →
-      </button>
-    </div>
-    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${bg}`}>{icon}</div>
-  </div>
-);
-
-// --- Main Component ---
 export default function TopStats({ todayCount = 0, upcomingCount = 0, pendingCount = 0, overdueCount = 0 }) {
   const navigate = useNavigate();
 
+  const stats = [
+    {
+      title: "Today's Meetings",
+      value: todayCount,
+      icon: Calendar,
+      iconBg: "bg-indigo-50 text-indigo-600",
+      route: "/dashboard/my-meetings",
+    },
+    {
+      title: "Upcoming Meetings",
+      value: upcomingCount,
+      icon: Clock,
+      iconBg: "bg-blue-50 text-blue-600",
+      route: "/dashboard/calendar",
+    },
+    {
+      title: "Pending Actions",
+      value: pendingCount,
+      icon: Clock,
+      iconBg: "bg-emerald-50 text-emerald-600",
+      route: "/dashboard/my-meetings",
+    },
+    {
+      title: "Overdue Actions",
+      value: overdueCount,
+      icon: AlertCircle,
+      iconBg: overdueCount > 0 ? "bg-rose-50 text-rose-600" : "bg-orange-50 text-orange-500",
+      valueColor: overdueCount > 0 ? "text-rose-600" : "text-gray-900",
+      route: "/dashboard/action-items",
+    }
+  ];
+
   return (
-    <div className="grid grid-cols-4 gap-6">
-      {/* Today's Meetings */}
-      <StatCard 
-        title="Today's Meetings" 
-        count={todayCount} 
-        icon={<Calendar className="w-6 h-6 text-indigo-600"/>} 
-        bg="bg-indigo-50" 
-        onViewAll={() => navigate('/dashboard/my-meetings')}
-      />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-5">
+      {stats.map((stat, idx) => {
+        const Icon = stat.icon;
+        return (
+          <div 
+            key={idx} 
+            onClick={() => navigate(stat.route)}
+            className="bg-white p-2.5 sm:p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between transition-all hover:shadow-md cursor-pointer group"
+          >
+            <div className="flex items-start gap-2 sm:gap-4">
+              <div className={`p-1.5 sm:p-3 rounded-xl shrink-0 ${stat.iconBg}`}>
+                <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[11px] sm:text-sm font-medium sm:font-semibold text-gray-500 leading-tight block">
+                  {stat.title}
+                </span>
+                <span className={`text-xl sm:text-3xl font-bold mt-1 ${stat.valueColor || 'text-gray-900'}`}>
+                  {stat.value}
+                </span>
+              </div>
+            </div>
 
-      {/* Upcoming Meetings */}
-      <StatCard 
-        title="Upcoming Meetings" 
-        count={upcomingCount} 
-        icon={<Clock className="w-6 h-6 text-blue-600"/>} 
-        bg="bg-blue-50" 
-        onViewAll={() => navigate('/dashboard/calendar')}
-      />
-
-      {/* Pending Actions */}
-      <StatCard 
-        title="Pending Actions" 
-        count={pendingCount} 
-        icon={<ClipboardCheck className="w-6 h-6 text-emerald-600"/>} 
-        bg="bg-emerald-50" 
-        linkColor="text-emerald-600" 
-        onViewAll={() => navigate('/dashboard/action-items')}
-      />
-
-      {/* Overdue Actions */}
-      <StatCard 
-        title="Overdue Actions" 
-        count={overdueCount} 
-        icon={<AlertCircle className="w-6 h-6 text-orange-500"/>} 
-        bg="bg-orange-50" 
-        color="text-orange-500" 
-        linkColor="text-orange-500" 
-        onViewAll={() => navigate('/dashboard/action-items')}
-      />
+            {/* Bottom Navigate Link */}
+            <div className="mt-2.5 sm:mt-4 pt-2 border-t border-gray-50 flex items-center justify-between text-[10px] sm:text-xs font-semibold text-indigo-600 group-hover:text-indigo-700">
+              <span>View details</span>
+              <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
