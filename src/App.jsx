@@ -89,6 +89,7 @@ export default function App() {
       window.removeEventListener('sync-meeting-sessions', handleSessionSync);
     };
   }, []);
+
   const saveMeetingSession = async (meetingId, sessionData) => {
     try {
       const targetId = sessionData?.meeting_id || sessionData?.id || meetingId;
@@ -141,6 +142,7 @@ export default function App() {
       console.error("Error saving meeting session to Database:", error);
     }
   };
+
   // 4. Meeting Rooms Fetch
   useEffect(() => {
     const fetchRoomsFromDB = async () => {
@@ -198,7 +200,10 @@ export default function App() {
               />
             } 
           />
-          <Route path="my-meetings" element={<MyMeetings bookedMeetings={bookedMeetings} />} />
+          <Route 
+            path="my-meetings" 
+            element={<MyMeetings bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
+          />
           <Route 
             path="book-meeting" 
             element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
@@ -209,13 +214,28 @@ export default function App() {
             element={<MeetingRooms bookedMeetings={bookedMeetings} meetingRooms={meetingRooms} currentUser={currentUser} />} 
           />
           
-          <Route path="meeting-records" element={<MeetingRecords />} />
-          <Route path="action-items" element={<ActionItem />} />
-          <Route path="calendar" element={<Calendar bookedMeetings={bookedMeetings} />} />
+          <Route 
+            path="meeting-records" 
+            element={<MeetingRecords currentUser={currentUser} />} 
+          />
+          <Route 
+            path="action-items" 
+            element={<ActionItem currentUser={currentUser} />} 
+          />
+          <Route 
+            path="calendar" 
+            element={<Calendar bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
+          />
           
-          <Route path="reports" element={<Reports bookedMeetings={bookedMeetings} meetingSessions={meetingSessions} />} />
+          <Route 
+            path="reports" 
+            element={<Reports bookedMeetings={bookedMeetings} meetingSessions={meetingSessions} currentUser={currentUser} />} 
+          />
           
-          <Route path="settings" element={<Settings />} />
+          <Route 
+            path="settings" 
+            element={<Settings currentUser={currentUser} />} 
+          />
           <Route 
             path="live-meeting" 
             element={
