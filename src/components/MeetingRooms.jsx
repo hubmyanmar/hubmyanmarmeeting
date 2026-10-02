@@ -389,7 +389,7 @@ export default function MeetingRooms({
   };
 
   return (
-    <div className="w-full bg-slate-50 min-h-screen px-3 pt-0 pb-16 md:px-6 md:pt-4 md:pb-12 font-sans text-slate-900">
+    <div className="w-full bg-slate-50 min-h-screen px-3 pt-0 pb-16 md:px-6 md:pt-4 md:pb-12 font-sans text-slate-900 max-md:w-auto max-md:-mx-8 max-md:-mt-8 max-md:px-3 max-md:pt-4 max-md:pb-24">
       <div className="max-w-6xl mx-auto space-y-4">
         
         {/* Header Section */}

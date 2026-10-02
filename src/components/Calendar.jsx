@@ -58,11 +58,11 @@ export default function Calendar({ bookedMeetings = [] }) {
     return bookedMeetings.map((b, index) => {
       const rawParticipants = b.participants || b.participant_list || b.users || b.members || [];
       const attendees = Array.isArray(rawParticipants) ? rawParticipants.map(p => ({
-        name: p.name || p.email?.split('@')[0] || 'User',
+        name: p.name || p.display_name || p.username || 'User',
         email: p.email || '',
         department: p.department || p.role || ''
       })) : [];
-
+      
       const meetingDateVal = b.date || b.meeting_date || b.start_date || toISODate(new Date());
       const rawStartTime = b.startTime || b.start_time || '09:00:00';
       const rawEndTime = b.endTime || b.end_time || '10:00:00';
@@ -91,7 +91,7 @@ export default function Calendar({ bookedMeetings = [] }) {
         meetingType: isOnline ? 'online' : 'physical',
         attendees: attendees,
         status: b.status || (b.isPending ? 'pending' : 'confirmed'),
-        organizer: b.organizer || (attendees[0]?.name ? `${attendees[0].name}${attendees[0].department ? ` (${attendees[0].department})` : ''}` : 'Organizer')
+        organizer: ''
       };
     });
   }, [bookedMeetings]);
@@ -278,7 +278,7 @@ export default function Calendar({ bookedMeetings = [] }) {
   }, [currentHour]);
 
   return (
-    <div className="flex flex-col md:flex-row bg-slate-50 min-h-screen font-sans text-slate-800 p-2 md:p-4 gap-3 md:gap-4 items-start pb-6 md:pb-4">
+    <div className="flex flex-col md:flex-row bg-slate-50 min-h-screen font-sans text-slate-800 p-2 md:p-4 gap-3 md:gap-4 items-start pb-6 md:pb-4 max-md:w-auto max-md:-mx-8 max-md:-mt-8 max-md:px-3 max-md:pt-4 max-md:pb-24">
       {/* Calendar Main Box */}
       <div className="w-full md:w-auto md:flex-1 flex flex-col bg-white rounded-xl md:rounded-2xl border border-slate-200 shadow-xs overflow-hidden mb-3 md:mb-0">
         
@@ -642,15 +642,6 @@ export default function Calendar({ bookedMeetings = [] }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 </svg>
                 <span className="font-semibold text-slate-800">{selectedMeeting.room}</span>
-              </div>
-            )}
-
-            {selectedMeeting.organizer && (
-              <div className="flex items-center gap-2.5 text-slate-600">
-                <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span>{selectedMeeting.organizer}</span>
               </div>
             )}
           </div>

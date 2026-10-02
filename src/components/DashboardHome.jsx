@@ -122,7 +122,7 @@ export default function DashboardHome({
   }, [bookedMeetings, meetingSessions]);
 
   return (
-    <div className="w-full flex flex-col gap-2 p-1 sm:p-2 bg-slate-50/50 min-h-screen">
+    <div className="w-full flex flex-col gap-2 p-1 sm:p-2 bg-slate-50/50 min-h-screen max-md:w-auto max-md:-mx-8 max-md:-mt-8 max-md:px-3 max-md:pt-4 max-md:pb-24">
       
       {/* Header Bar */}
       <DashboardHeader currentUser={currentUser} />
