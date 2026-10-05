@@ -15,9 +15,21 @@ export default function LeftPanel({
   formatTime,
   handlePause,
   handleResume,
+  audioUrl,
+  isAudioPlaying,
+  playbackTime: audioPlaybackTime = 0,
+  audioDuration = 0,
+  onPlaybackToggle,
   englishSummary: propEnglishSummary,
   myanmarSummary: propMyanmarSummary
 }) {
+  const formatPlaybackTime = (seconds) => {
+    const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
+    const remainingSeconds = (safeSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${remainingSeconds}`;
+  };
+
   const [isEditingEnglish, setIsEditingEnglish] = useState(false);
   const [englishSummary, setEnglishSummary] = useState(propEnglishSummary || "");
 
@@ -63,7 +75,7 @@ export default function LeftPanel({
 
   const isRecording = status === "active";
   const isPaused = status === "paused";
-  const isFinished = status === "processing" || status === "done"; 
+  const isFinished = status === "processing" || status === "done" || status === "stopped"; 
 
   // --- Download Function ---
   const handleDownload = () => {
@@ -92,8 +104,11 @@ export default function LeftPanel({
           <button 
             onClick={() => {
               if (isRecording && handlePause) handlePause();
+              else if (isPaused && audioUrl && onPlaybackToggle) onPlaybackToggle();
               else if (isPaused && handleResume) handleResume();
-              else if (isFinished) {
+              else if (isFinished && audioUrl && onPlaybackToggle) {
+                onPlaybackToggle();
+              } else if (isFinished) {
                 if (playbackTime >= timer) setPlaybackTime(0);
                 setIsPlayingPlayback(!isPlayingPlayback);
               }
@@ -104,16 +119,18 @@ export default function LeftPanel({
           >
             {isRecording ? (
               <Pause size={18} fill="currentColor" />
-            ) : (isFinished && isPlayingPlayback) ? (
+            ) : ((audioUrl && isAudioPlaying) || (isFinished && !audioUrl && isPlayingPlayback)) ? (
               <Pause size={18} fill="currentColor" />
             ) : (
               <Play size={18} fill="currentColor" className="ml-0.5" />
             )}
           </button>
           
-          <div className={`flex-1 h-8 flex items-center gap-[2px] overflow-hidden ${isRecording ? 'opacity-100' : 'opacity-80'}`}>
+          <div className={`flex-1 h-8 flex items-center gap-[2px] overflow-hidden ${isRecording ? 'opacity-100' : 'opacity-80'} ${audioUrl && isAudioPlaying ? 'audio-waveform-playing' : ''}`}>
             {[...Array(40)].map((_, i) => {
-              const progressPercentage = timer > 0 ? (playbackTime / timer) : 0;
+              const playedTime = audioUrl ? audioPlaybackTime : playbackTime;
+              const totalTime = audioUrl ? (audioDuration || timer) : timer;
+              const progressPercentage = totalTime > 0 ? (playedTime / totalTime) : 0;
               const isPlayed = isFinished && (i / 40) <= progressPercentage;
 
               return (
@@ -134,7 +151,9 @@ export default function LeftPanel({
           </div>
           
           <span className="text-xs font-medium text-gray-500 shrink-0 font-mono">
-            {isRecording || isPaused 
+            {isFinished && audioUrl
+              ? `${formatPlaybackTime(audioPlaybackTime)} / ${formatPlaybackTime(audioDuration || timer)}`
+              : isRecording || isPaused 
               ? formatTime(timer) 
               : status === "idle" 
                 ? "--:--" 

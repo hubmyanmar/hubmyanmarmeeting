@@ -16,7 +16,7 @@ import OverdueActionsPage from './pages/OverdueActionsPage';
 import { RecordingProvider } from './context/RecordingContext';
 import { normalizeMeetingStatus } from './utils/meetingSessionState';
 
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://192.168.58.46:8000/api/v1';
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://192.168.57.191:8000/api/v1';
 
 export default function App() {
   const [bookedMeetings, setBookedMeetings] = useState([]);

@@ -33,7 +33,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
 
   const API_BASE_URL = import.meta.env?.VITE_API_URL || 
     (typeof process !== 'undefined' ? process.env?.REACT_APP_API_URL : '') || 
-    'http://192.168.58.46:8000';
+    'http://192.168.57.191:8000';
 
   const showAlert = (icon, title, text) => {
     Swal.fire({

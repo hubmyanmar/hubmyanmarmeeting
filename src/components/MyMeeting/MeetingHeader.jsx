@@ -8,20 +8,20 @@ export default function MeetingHeader({ activeTab, onTabChange, activeView, onVi
   ];
 
   return (
-    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-5 sm:mb-8 gap-4">
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Meetings</h1>
         <p className="text-gray-400 mt-1 text-sm font-normal">Stay organized and never miss a conversation.</p>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full lg:w-auto min-w-0">
         {/* Tabs */}
-        <div className="flex bg-gray-100/70 p-1 rounded-xl">
+        <div className="flex w-full sm:w-auto max-w-full overflow-x-auto whitespace-nowrap bg-gray-100/70 p-1 rounded-xl">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange?.(tab.id)}
-              className={`flex items-center px-4 py-1.5 text-sm rounded-lg transition-all ${
+              className={`flex shrink-0 items-center px-4 py-1.5 text-sm rounded-lg transition-all ${
                 activeTab === tab.id
                   ? 'bg-white shadow-xs font-semibold text-gray-800'
                   : 'font-medium text-gray-500 hover:text-gray-700'

@@ -151,14 +151,14 @@ export default function MyMeetings({ bookedMeetings = [] }) {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8faef]/40 text-gray-800">
+    <div className="min-h-screen bg-[#f8faef]/40 text-gray-800 max-md:w-auto max-md:-mx-8 max-md:-mt-8">
       <MeetingNavbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onFilterChange={setDateFilter}
       />
 
-      <main className="max-w-7xl mx-auto px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-8 max-md:mx-0 max-md:w-full max-md:max-w-full max-md:px-4 max-md:pt-4 max-md:pb-24">
         <MeetingHeader
           activeTab={activeTab}
           onTabChange={setActiveTab}

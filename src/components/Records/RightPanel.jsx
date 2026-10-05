@@ -13,6 +13,7 @@ export default function RightPanel({
   status, 
   actionType, 
   liveTranscript,
+  speechActivity,
   keyDecisions: propKeyDecisions,
   actionItems: propActionItems
 }) {
@@ -63,6 +64,7 @@ export default function RightPanel({
               <h3 className="font-semibold text-gray-900">Live Transcript</h3>
             </div>
             <div className="bg-emerald-50/30 p-5 rounded-xl border border-emerald-100 flex-1 overflow-y-auto min-h-[300px]">
+              {speechActivity && <p className="text-xs text-gray-500 mb-2">{speechActivity}</p>}
               <p className="text-gray-700 leading-relaxed text-[15px]">
                 {liveTranscript}
                 <span className="animate-pulse ml-1 inline-block w-1.5 h-4 bg-emerald-500 align-middle"></span>

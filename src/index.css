@@ -46,6 +46,19 @@ button {
   cursor: pointer;
 }
 
+@keyframes audio-waveform-pulse {
+  0%, 100% { transform: scaleY(0.55); }
+  50% { transform: scaleY(1); }
+}
+
+.audio-waveform-playing > div {
+  transform-origin: center;
+  animation: audio-waveform-pulse 700ms ease-in-out infinite alternate;
+}
+
+.audio-waveform-playing > div:nth-child(3n) { animation-delay: -250ms; }
+.audio-waveform-playing > div:nth-child(3n + 1) { animation-delay: -500ms; }
+
 h1,
 h2,
 h3,

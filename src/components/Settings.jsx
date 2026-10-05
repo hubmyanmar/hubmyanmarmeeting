@@ -1,300 +1,163 @@
 import React, { useState } from 'react';
-import { 
-  User, 
-  DoorClosed, 
-  Settings as SettingsIcon, 
-  ShieldCheck, 
-  Link as LinkIcon, 
-  Bell, 
-  FileText, 
-  Users, 
-  ChevronRight, 
-  ChevronLeft, 
-  Clock, 
-  MessageSquare, 
-  CheckSquare, 
-  Save,
-  Mail
+import {
+  User,
+  DoorClosed,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Link2,
+  Bell,
+  FileText,
+  Users,
+  ChevronRight,
+  Clock,
+  MessageSquare,
 } from 'lucide-react';
 
-export default function Settings() {
-  const [activeView, setActiveView] = useState('main');
+const settingLinks = [
+  { label: 'Profile', icon: User, group: 'Account' },
+  { label: 'Rooms', icon: DoorClosed, group: 'Workspace' },
+  { label: 'Approvals', icon: ShieldCheck, group: 'Workspace', admin: true },
+  { label: 'Calendar integrations', icon: Link2, group: 'Workspace', admin: true },
+  { label: 'Notifications', icon: Bell, group: 'Preferences' },
+  { label: 'Meeting records', icon: FileText, group: 'Preferences', admin: true },
+  { label: 'Access & roles', icon: Users, group: 'Workspace', admin: true },
+];
+
+function SettingLink({ icon: Icon, label, admin, active = false }) {
+  return (
+    <div
+      className={`flex min-h-14 items-center gap-3 px-4 py-3 ${active ? 'bg-[#F8F7FF]' : ''}`}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F0EFFF] text-[#564BFF]">
+        <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
+      </span>
+      <span className={`min-w-0 flex-1 text-sm font-semibold leading-5 ${active ? 'text-[#564BFF]' : 'text-slate-700'}`}>
+        {label}
+      </span>
+      {admin && (
+        <span className="max-w-[92px] rounded-full bg-[#F0EFFF] px-2 py-1 text-center text-[10px] font-bold leading-3 text-[#564BFF] sm:max-w-none">
+          Admin only
+        </span>
+      )}
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-300" />
+    </div>
+  );
+}
+
+function RuleRow({ icon: Icon, title, value, status }) {
+  return (
+    <div className="flex min-h-[60px] items-center gap-3 py-3">
+      <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-slate-500" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm leading-5 text-slate-500">{title}</p>
+        {value && <p className="break-words text-[15px] font-semibold leading-6 text-slate-800">{value}</p>}
+      </div>
+      {status && (
+        <span className="max-w-[125px] rounded-md bg-orange-50 px-2 py-1 text-center text-xs font-semibold leading-4 text-orange-700 sm:max-w-none">
+          {status}
+        </span>
+      )}
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-300" />
+    </div>
+  );
+}
+
+export default function Settings({ currentUser }) {
   const [adminApproval, setAdminApproval] = useState(true);
+  const user = Array.isArray(currentUser) ? currentUser[0] : currentUser;
+  const name = user?.name || user?.fullName || 'Naing Lin Oo';
+  const role = user?.position || user?.role || 'Group Sr. Business Development Manager';
+  const email = user?.email || 'naing.lin.oo@hubmyanmar.com';
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-      {activeView === 'main' ? (
-        <div>
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Settings</h2>
-            <p className="text-sm sm:text-base text-slate-500 mt-1">Manage your account and meeting preferences</p>
-          </div>
-          <div className="bg-gradient-to-r from-indigo-50/60 via-purple-50/30 to-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-indigo-100/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl sm:text-2xl font-semibold shadow-inner">
-                N
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Naing Lin Oo</h3>
-                  <span className="px-2.5 py-0.5 bg-indigo-100/80 text-indigo-700 text-xs font-semibold rounded-full">Admin</span>
-                </div>
-                <p className="text-slate-600 text-xs sm:text-sm truncate">Group Sr. Business Development Manager</p>
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs sm:text-sm mt-1 truncate">
-                  <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span className="truncate">naing.lin.oo@hubmyanmar.com</span>
-                </div>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-slate-400 hidden sm:block shrink-0 mr-2" />
-          </div>
+    <div className="-m-8 min-h-full bg-[#F8FAFC] px-8 py-7 max-md:px-4 max-md:py-5">
+      <div className="mx-auto w-full max-w-5xl pb-24 md:pb-8">
+        <header className="mb-6">
+          <p className="mb-1 text-sm font-semibold text-[#564BFF]">Workspace</p>
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-[30px]">Settings</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Manage your account and meeting workspace preferences.
+          </p>
+        </header>
 
-          {/* Settings Options List */}
-          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-100">
-            
-            {/* Profile */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.4fr)] lg:items-start">
+          <div className="min-w-0 space-y-5">
+            <section aria-label="Account profile" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#564BFF] text-lg font-semibold text-white">
+                  {name.trim().charAt(0).toUpperCase()}
                 </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Profile</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">View and update your personal information</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h2 className="max-w-full break-words text-base font-bold leading-5 text-slate-900">{name}</h2>
+                    <span className="rounded-full bg-[#F0EFFF] px-2 py-1 text-[11px] font-bold leading-4 text-[#564BFF]">Admin</span>
+                  </div>
+                  <p className="mt-1 break-words text-sm leading-5 text-slate-600">{role}</p>
+                  <p className="break-all text-sm leading-5 text-slate-500">{email}</p>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
+            </section>
 
-            {/* Rooms */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <DoorClosed className="w-4 h-4 sm:w-5 sm:h-5" />
+            {['Account', 'Workspace', 'Preferences'].map((group) => (
+              <section key={group} aria-labelledby={`settings-${group.toLowerCase()}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <h2 id={`settings-${group.toLowerCase()}`} className="border-b border-slate-100 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                  {group}
+                </h2>
+                <div className="divide-y divide-slate-100">
+                  {settingLinks.filter((item) => item.group === group).map((item) => (
+                    <SettingLink key={item.label} {...item} />
+                  ))}
                 </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Rooms</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Manage meeting rooms and locations</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Booking Rules */}
-            <div 
-              onClick={() => setActiveView('booking-rules')}
-              className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3"
-            >
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <SettingsIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Booking Rules</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Set rules for meeting bookings and calendar blocking</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Approvals */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Approvals</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Manage approval workflows</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-[11px] sm:text-xs font-medium rounded-full">Admin Only</span>
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-              </div>
-            </div>
-
-            {/* Calendar Integrations */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Calendar Integrations</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Connect your calendar and sync meetings</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-[11px] sm:text-xs font-medium rounded-full">Admin Only</span>
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-              </div>
-            </div>
-
-            {/* Notifications */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Notifications</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Configure your notification preferences</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Meeting Records */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Meeting Records</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Access and manage your meeting recordings</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-[11px] sm:text-xs font-medium rounded-full">Admin Only</span>
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-              </div>
-            </div>
-
-            {/* Access & Roles */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/60 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Access & Roles</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Manage team access and permissions</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-[11px] sm:text-xs font-medium rounded-full">Admin Only</span>
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-              </div>
-            </div>
-
-          </div>
-        </div>
-      ) : (
-        /* ဒုတိယပုံစံ - Booking Rules Detail View */
-        <div>
-          {/* Header with Back Button */}
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <button 
-                onClick={() => setActiveView('main')}
-                className="w-10 h-10 shrink-0 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <div className="min-w-0">
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">Booking Rules</h2>
-                <p className="text-xs sm:text-sm text-slate-500 truncate">Configure rules for meeting bookings and calendar blocking.</p>
-              </div>
-            </div>
-            <span className="self-start sm:self-center px-2.5 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-full shrink-0">Admin Only</span>
+              </section>
+            ))}
           </div>
 
-          {/* Sub Content Box */}
-          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-100 mb-8">
-            
-            {/* Toggle Item */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/40 transition gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className={`w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl flex items-center justify-center ${adminApproval ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                  <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+          <section aria-labelledby="booking-rules-title" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-1 flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F0EFFF] text-[#564BFF]">
+                <SettingsIcon aria-hidden="true" className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 id="booking-rules-title" className="text-lg font-bold leading-6 text-slate-900">Booking rules</h2>
+                  <span className="rounded-full bg-[#F0EFFF] px-2 py-1 text-[11px] font-bold leading-4 text-[#564BFF]">Admin only</span>
                 </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Admin approval required before calendar blocking</h4>
-                  <p className="text-xs sm:text-sm text-slate-500 truncate">Meetings must be approved by an admin before they block the calendar.</p>
-                </div>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={adminApproval} 
-                onChange={() => setAdminApproval(!adminApproval)}
-                className="w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer shrink-0"
-              />
-            </div>
-
-            {/* Working hours */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/40 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Working hours</h4>
-                  <p className="text-xs sm:text-sm text-slate-500">09:00 AM – 06:00 PM</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Required approver role */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/40 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Required approver role</h4>
-                  <p className="text-xs sm:text-sm text-slate-500">Department Head</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Notification channel */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/40 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Notification channel</h4>
-                  <p className="text-xs sm:text-sm text-slate-500">Email + In-app</p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 shrink-0" />
-            </div>
-
-            {/* Calendar integration status */}
-            <div className="p-4 sm:p-5 flex items-center justify-between hover:bg-slate-50/40 transition cursor-pointer gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                  <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base text-slate-900">Calendar integration status</h4>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] sm:text-xs font-semibold rounded-full border border-amber-200">
-                  Needs Attention
-                </span>
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+                <p className="mt-1 text-sm leading-5 text-slate-600">Configure meeting bookings and calendar blocking.</p>
               </div>
             </div>
 
-          </div>
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={adminApproval}
+                  aria-label="Admin approval required before calendar blocking"
+                  onClick={() => setAdminApproval((value) => !value)}
+                  className={`relative mt-0.5 inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${adminApproval ? 'bg-[#564BFF]' : 'bg-slate-300'}`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${adminApproval ? 'translate-x-5' : 'translate-x-1'}`} />
+                </button>
+                <div className="min-w-0 pt-0.5">
+                  <h3 className="text-sm font-semibold leading-5 text-slate-900">Admin approval required before calendar blocking</h3>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">Meetings must be approved by an admin before they block the calendar.</p>
+                </div>
+              </div>
+            </div>
 
-          {/* Save Changes Button Footer */}
-          <div className="flex justify-center">
-            <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-2xl shadow-lg shadow-indigo-600/20 transition">
-              <Save className="w-5 h-5" />
-              <span>Save Changes</span>
+            <div className="mt-4 divide-y divide-slate-100">
+              <RuleRow icon={Clock} title="Working hours" value="09:00 AM – 06:00 PM" />
+              <RuleRow icon={User} title="Required approver role" value="Department Head" />
+              <RuleRow icon={MessageSquare} title="Notification channel" value="Email + In-app" />
+              <RuleRow icon={Link2} title="Calendar integration status" status="Needs attention" />
+            </div>
+
+            <button type="button" className="mt-4 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce]">
+              Save changes
             </button>
-          </div>
+          </section>
         </div>
-      )}
+      </div>
     </div>
   );
 }

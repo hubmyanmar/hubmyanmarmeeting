@@ -1,8 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 
-const LIVE_TEXT = "Welcome everyone to the BD Strategy Discussion. Today we need to align on the partnership with ABC Company. We are proposing a Q2 sales target of MMK 2.5 Billion. Also, we need to schedule the new marketing campaign for 1 June 2025, and prepare the product demo by 15 June. Let's get started.";
-const WORDS = LIVE_TEXT.split(" ");
-
 const isTerminalStatus = (value) => ['stopped', 'done', 'completed', 'finished', 'ended', 'closed'].includes(String(value || '').trim().toLowerCase());
 
 const RecordingContext = createContext();
@@ -50,22 +47,19 @@ export const RecordingProvider = ({ children }) => {
   const handleStop = () => {
     setStatus("stopped");
   };
+
+  const handleTranscript = (text) => {
+    setLiveTranscript((previous) => {
+      const nextText = text || "";
+      return previous === nextText ? previous : nextText;
+    });
+  };
   
   useEffect(() => {
     let interval;
     if (status === "active") {
       interval = setInterval(() => {
         setTimer((prev) => prev + 1);
-        
-        if (actionType === "live_transcription") {
-          setLiveTranscript((prev) => {
-            const currentWords = prev.split(" ").filter(w => w !== "");
-            if (currentWords.length < WORDS.length) {
-              return prev + (prev ? " " : "") + WORDS[currentWords.length];
-            }
-            return prev;
-          });
-        }
       }, 700); 
     }
     return () => clearInterval(interval);
@@ -95,6 +89,7 @@ export const RecordingProvider = ({ children }) => {
       handlePause,
       handleResume,
       handleStop,
+      handleTranscript,
       formatTime,
       resetRecording
     }}>

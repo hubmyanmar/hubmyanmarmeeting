@@ -157,7 +157,7 @@ export default function Sidebar({ user, profileImage }) {
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">More Menu</span>
             <button 
               onClick={() => setShowMore(false)} 
-              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex h-11 w-11 items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -170,7 +170,7 @@ export default function Sidebar({ user, profileImage }) {
                 <button
                   key={item.path}
                   onClick={() => handleMobileNav(item.path)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                  className={`w-full min-h-11 flex items-center justify-between px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
                     isActive 
                       ? 'bg-indigo-50 text-indigo-600' 
                       : 'text-slate-700 hover:bg-slate-50 hover:text-indigo-600'
@@ -190,7 +190,7 @@ export default function Sidebar({ user, profileImage }) {
           <div className="p-4 border-t border-gray-100">
             <button 
               onClick={handleLogout}
-              className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+              className="flex min-h-11 items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
             >
               <LogOut className="w-4 h-4" />
               Logout
@@ -198,7 +198,7 @@ export default function Sidebar({ user, profileImage }) {
           </div>
         </div>
 
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 flex justify-around items-center h-16 px-1 shadow-lg">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 flex justify-around items-center h-16 px-0 shadow-lg">
           {primaryMobileNavs.map((item) => {
             const Icon = item.icon;
             const isActive = currentPath === item.path && !showMore;
@@ -206,7 +206,7 @@ export default function Sidebar({ user, profileImage }) {
               <button
                 key={item.path}
                 onClick={() => handleMobileNav(item.path)}
-                className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors relative ${
+                className={`flex flex-col items-center justify-center flex-1 h-full py-0.5 text-[11px] font-medium transition-colors relative ${
                   isActive ? 'text-indigo-600 font-semibold' : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
@@ -217,7 +217,7 @@ export default function Sidebar({ user, profileImage }) {
           })}
           <button
             onClick={() => setShowMore(!showMore)}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors relative ${
+            className={`flex flex-col items-center justify-center flex-1 h-full py-0.5 text-[11px] font-medium transition-colors relative ${
               showMore || isSecondaryActive ? 'text-indigo-600 font-semibold' : 'text-gray-500 hover:text-gray-800'
             }`}
           >

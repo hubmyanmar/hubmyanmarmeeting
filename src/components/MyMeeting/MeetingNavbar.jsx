@@ -20,7 +20,7 @@ export default function MeetingNavbar({ searchQuery, onSearchChange, onFilterCha
   }, []);
 
   return (
-    <header className="border-b border-gray-100 px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-2">
+    <header className="border-b border-gray-100 px-3 sm:px-8 py-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 max-md:px-4">
       <div className="relative w-full md:w-96">
         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,12 +36,12 @@ export default function MeetingNavbar({ searchQuery, onSearchChange, onFilterCha
         />
       </div>
 
-      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-        <div className="relative" ref={dropdownRef}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full md:w-auto sm:justify-between md:justify-end max-md:gap-1.5">
+        <div className="relative max-md:self-start" ref={dropdownRef}>
           <button 
             type="button" 
             onClick={() => setShowFilter(!showFilter)}
-            className="flex items-center gap-2 px-3.5 py-2 bg-gray-50/80 border border-gray-200/60 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 px-3 py-2 sm:px-3.5 bg-gray-50/80 border border-gray-200/60 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors max-md:w-auto max-md:px-2.5 max-md:py-1.5 max-md:text-xs"
           >
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -76,7 +76,7 @@ export default function MeetingNavbar({ searchQuery, onSearchChange, onFilterCha
         <button 
           type="button" 
           onClick={() => navigate('/dashboard/book-meeting')}
-          className="flex items-center gap-2 px-4 py-2 bg-[#5538ee] hover:bg-[#482ee0] text-white rounded-xl text-sm font-semibold shadow-xs transition-colors"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 bg-[#5538ee] hover:bg-[#482ee0] text-white rounded-xl text-sm font-semibold shadow-xs transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
