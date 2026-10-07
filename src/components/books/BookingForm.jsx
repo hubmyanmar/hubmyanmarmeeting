@@ -83,13 +83,13 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
 
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://192.168.0.10:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   
   const fetchRooms = useCallback(async (abortSignal) => {
     setIsRoomsLoading(true);
     setRoomError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/meeting-rooms/`, { signal: abortSignal });
+      const res = await fetch(`${API_BASE_URL}/meeting-rooms/`, { signal: abortSignal });
       if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
       const roomData = await res.json();
       setRooms(Array.isArray(roomData) ? roomData : []);
@@ -105,7 +105,7 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
     setIsCompaniesLoading(true);
     setCompanyError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/companies/`, { signal: abortSignal });
+      const res = await fetch(`${API_BASE_URL}/companies/`, { signal: abortSignal });
       if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
       const companyData = await res.json();
       setCompanies(Array.isArray(companyData) ? companyData : []);
@@ -120,7 +120,7 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
   const fetchUsers = useCallback(async (abortSignal) => {
     setIsUsersLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/users`, { signal: abortSignal });
+      const res = await fetch(`${API_BASE_URL}/auth/users`, { signal: abortSignal });
       if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
       const userData = await res.json();
       setAvailableUsers(Array.isArray(userData) ? userData : []);

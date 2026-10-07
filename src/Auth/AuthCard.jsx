@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function AuthCard({ setCurrentUser }) {
   const navigate = useNavigate();
 
@@ -26,7 +28,7 @@ export default function AuthCard({ setCurrentUser }) {
   useEffect(() => {
     const fetchPositions = async () => {
       try {
-        const response = await fetch('http://192.168.0.10:8000/api/v1/auth/positions');
+        const response = await fetch(`${API_BASE_URL}/auth/positions`);
         if (response.ok) {
           const data = await response.json();
           setPositions(data.positions || []);
@@ -80,7 +82,7 @@ export default function AuthCard({ setCurrentUser }) {
     try {
       if (isLogin) {
         
-        const response = await fetch('http://192.168.0.10:8000/api/v1/auth/login', {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -109,7 +111,7 @@ export default function AuthCard({ setCurrentUser }) {
         navigate('/dashboard');
 
       } else {
-        const response = await fetch('http://192.168.0.10:8000/api/v1/auth/register', {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

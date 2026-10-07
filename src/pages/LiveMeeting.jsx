@@ -52,7 +52,7 @@ export default function LiveMeeting({
   currentUser, 
   refreshSessions, 
   onSaveSession,
-  apiUrl = 'http://192.168.0.10:8000/api/v1/meeting-sessions'
+  apiUrl
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -250,8 +250,6 @@ export default function LiveMeeting({
           recognition.onspeechstart = () => setSpeechActivity('Speech detected...');
           recognition.onresult = (event) => {
             const interimParts = [];
-            // Some prefixed implementations omit resultIndex; process the full
-            // result list in that case so interim text is not silently skipped.
             const results = event.results;
             const firstChangedResult = Number.isInteger(event.resultIndex)
               ? Math.min(event.resultIndex, results?.length || 0)

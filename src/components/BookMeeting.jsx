@@ -31,9 +31,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
   const [fetchedMeetings, setFetchedMeetings] = useState([]);
   const [rooms, setRooms] = useState([]);
 
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || 
-    (typeof process !== 'undefined' ? process.env?.REACT_APP_API_URL : '') || 
-    'http://192.168.0.10:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const showAlert = (icon, title, text) => {
     Swal.fire({
@@ -48,7 +46,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/meeting-rooms/`);
+        const res = await fetch(`${API_BASE_URL}/meeting-rooms/`);
         if (res.ok) {
           const roomData = await res.json();
           setRooms(Array.isArray(roomData) ? roomData : []);
@@ -62,7 +60,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
 
   const fetchBookedMeetings = useCallback(async (selectedDate, abortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/meetings/?date=${selectedDate}`, { signal: abortSignal });
+      const res = await fetch(`${API_BASE_URL}/meetings/?date=${selectedDate}`, { signal: abortSignal });
       if (res.ok) {
         const meetings = await res.json();
         const validMeetings = Array.isArray(meetings) ? meetings : [];
@@ -146,7 +144,7 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
     console.log("Payload to Backend:", data);
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/v1/meetings/`, {
+      const response = await fetch(`${API_BASE_URL}/meetings/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
