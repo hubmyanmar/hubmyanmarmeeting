@@ -52,7 +52,7 @@ export default function LiveMeeting({
   currentUser, 
   refreshSessions, 
   onSaveSession,
-  apiUrl = 'http://192.168.57.191:8000/api/v1/meeting-sessions'
+  apiUrl = 'http://192.168.0.10:8000/api/v1/meeting-sessions'
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -93,18 +93,21 @@ export default function LiveMeeting({
   const [actionChosen, setActionChosen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [frozenTimer, setFrozenTimer] = useState(null);
-  const [audioUrl, setAudioUrl] = useState('');
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [speechActivity, setSpeechActivity] = useState('');
 
-  const updatePlaybackUrl = (blob) => {
+  const updatePlaybackUrl = (blob, chunkCount = audioChunksRef.current.length) => {
     if (!blob.size) return;
     const nextUrl = URL.createObjectURL(blob);
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     audioUrlRef.current = nextUrl;
     setAudioUrl(nextUrl);
+    console.log('[audio] playback URL created:', nextUrl, 'chunks:', chunkCount, 'blob bytes:', blob.size, 'type:', blob.type);
   };
 
   useEffect(() => () => {
@@ -328,18 +331,22 @@ export default function LiveMeeting({
         recordingSegmentStartRef.current = null;
         setAudioDuration(0);
         setPlaybackTime(0);
-        setAudioUrl('');
+        setAudioUrl(null);
         if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
         audioUrlRef.current = null;
 
-        recorder.addEventListener('dataavailable', (event) => {
-          if (event.data.size > 0) {
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
             audioChunksRef.current.push(event.data);
-            updatePlaybackUrl(new Blob(audioChunksRef.current, {
-              type: recorder.mimeType || event.data.type || '',
-            }));
+            console.log('[audio] dataavailable:', { chunkBytes: event.data.size, chunks: audioChunksRef.current.length, type: event.data.type });
+            if (mediaRecorderRef.current?.state === 'paused' || mediaRecorderRef.current?.state === 'inactive') {
+              const blob = new Blob(audioChunksRef.current, {
+                type: recorder.mimeType || event.data.type || 'audio/webm',
+              });
+              updatePlaybackUrl(blob, audioChunksRef.current.length);
+            }
           }
-        });
+        };
         recorder.addEventListener('stop', () => {
           const blob = new Blob(audioChunksRef.current, {
             type: recorder.mimeType || audioChunksRef.current[0]?.type || '',
@@ -349,7 +356,9 @@ export default function LiveMeeting({
             recordingSegmentStartRef.current = null;
           }
           setAudioDuration(Math.ceil(recordedDurationMsRef.current / 1000));
-          updatePlaybackUrl(blob);
+          setIsRecording(false);
+          setIsPaused(false);
+          updatePlaybackUrl(blob, audioChunksRef.current.length);
           console.log('Recording audio Blob:', blob);
           window.dispatchEvent(new CustomEvent('meeting-audio-recorded', { detail: { blob } }));
           stream.getTracks().forEach((track) => track.stop());
@@ -357,11 +366,15 @@ export default function LiveMeeting({
           mediaRecorderRef.current = null;
         }, { once: true });
 
-        recorder.start();
+        recorder.start(1000);
+        setIsRecording(true);
+        setIsPaused(false);
         recordingSegmentStartRef.current = Date.now();
       } catch (err) {
         console.error('Unable to start audio recording:', err);
         isRecordingRef.current = false;
+        setIsRecording(false);
+        setIsPaused(false);
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
         shouldRestartSpeechRef.current = false;
@@ -404,6 +417,8 @@ export default function LiveMeeting({
       if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
         mediaRecorderRef.current.stop();
       }
+      setIsRecording(false);
+      setIsPaused(false);
       setFrozenTimer(timer);
 
       const target = meeting || rawMeeting;
@@ -448,22 +463,32 @@ export default function LiveMeeting({
     isRecordingRef.current = false;
     speechRecognitionRef.current?.stop();
     const recorder = mediaRecorderRef.current;
-    if (recorder?.state === 'recording') {
+    if (recorder?.state === 'recording' && isRecording && !isPaused) {
       if (recordingSegmentStartRef.current !== null) {
         recordedDurationMsRef.current += Date.now() - recordingSegmentStartRef.current;
         recordingSegmentStartRef.current = null;
       }
       setAudioDuration(Math.ceil(recordedDurationMsRef.current / 1000));
-      recorder.pause();
-      recorder.requestData();
+      mediaRecorderRef.current.pause();
+      setIsRecording(false);
+      setIsPaused(true);
+      console.log('[audio] pause requested; collected chunks:', audioChunksRef.current.length);
+      if (audioChunksRef.current.length > 0) {
+        const partialBlob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || audioChunksRef.current[0]?.type || 'audio/webm',
+        });
+        updatePlaybackUrl(partialBlob, audioChunksRef.current.length);
+      }
     }
     handlePause();
   };
 
   const onResumeRecording = () => {
     isRecordingRef.current = true;
-    if (mediaRecorderRef.current?.state === 'paused') {
+    if (mediaRecorderRef.current?.state === 'paused' && isPaused) {
       mediaRecorderRef.current.resume();
+      setIsRecording(true);
+      setIsPaused(false);
       recordingSegmentStartRef.current = Date.now();
     }
     if (actionType === 'live_transcription' && speechRecognitionRef.current) {
@@ -494,6 +519,8 @@ export default function LiveMeeting({
         ref={audioRef}
         src={audioUrl || undefined}
         hidden
+        onLoadedMetadata={(event) => console.log('[audio] player source loaded:', event.currentTarget.currentSrc)}
+        onError={(event) => console.error('[audio] player source error:', event.currentTarget.error, event.currentTarget.currentSrc)}
         onPlay={() => setIsAudioPlaying(true)}
         onPause={() => setIsAudioPlaying(false)}
         onEnded={onPlaybackEnded}

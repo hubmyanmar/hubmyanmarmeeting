@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mic, Play, Download, Pause } from 'lucide-react';
 
 const SkeletonText = ({ lines = 3 }) => (
@@ -51,9 +51,9 @@ export default function LeftPanel({
   const [isPlayingPlayback, setIsPlayingPlayback] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
 
-  const staticWaveHeights = useMemo(() => {
-    return [...Array(40)].map(() => Math.max(20, Math.random() * 100));
-  }, []);
+  const staticWaveHeights = [...Array(40)].map((_, i) =>
+    20 + Math.abs(Math.sin(i * 1.71) * Math.cos(i * 0.37)) * 75
+  );
 
   useEffect(() => {
     let interval;
@@ -132,6 +132,10 @@ export default function LeftPanel({
               const totalTime = audioUrl ? (audioDuration || timer) : timer;
               const progressPercentage = totalTime > 0 ? (playedTime / totalTime) : 0;
               const isPlayed = isFinished && (i / 40) <= progressPercentage;
+              const playbackWave = 20 + Math.abs(
+                Math.sin((i * 0.82) + (audioPlaybackTime * 8.5)) *
+                Math.cos((i * 0.31) - (audioPlaybackTime * 5.2))
+              ) * 80;
 
               return (
                 <div 
@@ -142,8 +146,10 @@ export default function LeftPanel({
                   }`} 
                   style={{ 
                     height: isRecording 
-                      ? `${Math.max(20, Math.random() * 100)}%` 
-                      : `${staticWaveHeights[i]}%` 
+                      ? `${staticWaveHeights[i]}%`
+                      : audioUrl && isAudioPlaying
+                        ? `${playbackWave}%`
+                        : `${staticWaveHeights[i]}%`
                   }}
                 ></div>
               );
