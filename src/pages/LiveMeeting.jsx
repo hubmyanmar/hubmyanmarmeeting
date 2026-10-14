@@ -8,6 +8,9 @@ import RightPanel from '../components/Records/RightPanel';
 import StatusBanner from '../components/Records/StatusBanner';
 
 import { useRecording } from '../context/RecordingContext';
+import api from '../api';
+import { createMultipartUpload, uploadFileToS3 } from '../api/s3Upload';
+import { isMeetingStopped as isStoppedSession } from '../utils/meetingSessionState';
 
 const formatTimeToAMPM = (timeStr) => {
   if (!timeStr) return '';
@@ -31,6 +34,26 @@ const formatTimeToAMPM = (timeStr) => {
   return `${String(hours).padStart(2, '0')}:${minutes} ${modifier}`;
 };
 
+const formatRecordingTime = (totalSeconds = 0) => {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const minutesPart = Math.floor(seconds / 60);
+  const secondsPart = seconds % 60;
+  return `${String(minutesPart).padStart(2, '0')}:${String(secondsPart).padStart(2, '0')}`;
+};
+
+const getAudioExtension = (mimeType) => {
+  const mediaType = String(mimeType || '').split(';')[0].trim().toLowerCase();
+  const extensions = {
+    'audio/mp4': 'mp4',
+    'audio/webm': 'webm',
+    'audio/ogg': 'ogg',
+    'audio/mpeg': 'mp3',
+    'audio/wav': 'wav',
+    'audio/x-wav': 'wav',
+  };
+  return extensions[mediaType] || 'webm';
+};
+
 const formatDisplayValue = (val, fallback = '') => {
   if (!val) return fallback;
   if (typeof val === 'object') {
@@ -47,12 +70,46 @@ const getMeetingId = (target) => {
   return `meeting_${mTitle}_${mTime}`.replace(/[^a-zA-Z0-9]/g, '_');
 };
 
+const hasSavedRecording = (meeting) => Boolean(
+  meeting?.recording_completed || meeting?.recording_uploaded || meeting?.audio_url ||
+  isStoppedSession(meeting) || isStoppedSession(meeting?.meeting)
+);
+
+const persistUploadedAudio = (meeting, audioUrl) => {
+  let savedMeeting = null;
+  try { savedMeeting = JSON.parse(localStorage.getItem('active_live_meeting') || 'null'); } catch { /* ignore invalid saved state */ }
+  localStorage.setItem('active_live_meeting', JSON.stringify({
+    ...(savedMeeting || meeting),
+    audio_url: audioUrl,
+    recording_uploaded: true,
+  }));
+};
+
+const getUserMediaWithTimeout = (constraints, timeoutMs = 30000) => {
+  let requestTimedOut = false;
+  let timeoutId;
+  const mediaRequest = navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    // The browser may resolve after the timeout; do not leave a late stream open.
+    if (requestTimedOut) stream.getTracks().forEach((track) => track.stop());
+    return stream;
+  });
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      requestTimedOut = true;
+      const error = new Error('Microphone permission request timed out.');
+      error.name = 'TimeoutError';
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([mediaRequest, timeout]).finally(() => window.clearTimeout(timeoutId));
+};
+
 export default function LiveMeeting({ 
   selectedMeetingData: propMeetingData, 
   currentUser, 
   refreshSessions, 
-  onSaveSession,
-  apiUrl
+  onSaveSession
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,8 +117,14 @@ export default function LiveMeeting({
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const recordedAudioBlobRef = useRef(null);
+  const uploadCompletionRef = useRef(Promise.resolve(null));
+  const retryActionRef = useRef('quick_voice_note');
+  const retryFileRef = useRef(null);
+  const errorSourceRef = useRef('mic');
   const audioUrlRef = useRef(null);
   const audioRef = useRef(null);
+  const restoredMeetingIdRef = useRef(null);
   const recordingSegmentStartRef = useRef(null);
   const recordedDurationMsRef = useRef(0);
   const speechRecognitionRef = useRef(null);
@@ -76,39 +139,195 @@ export default function LiveMeeting({
   const userId = activeUser?.id || activeUser?._id || 'guest_user';
 
   const { 
-    status, actionType, timer, fileName, liveTranscript, 
-    handleStart, handleFileUpload, handlePause, handleResume, handleStop, handleTranscript, formatTime
+    status, actionType, fileName, liveTranscript, uploadProgress, audioUrl: uploadedAudioUrl,
+    setStatus, setActionType, setFileName, setUploadProgress, setAudioUrl: setUploadedAudioUrl,
+    handleStart, handlePause, handleResume, handleStop, handleTranscript, resetRecording
   } = useRecording();
 
   const [selectedMeetingData, setSelectedMeetingData] = useState(() => {
     const passedData = propMeetingData || location.state;
+    const savedValue = localStorage.getItem('active_live_meeting');
+    let savedData = null;
+    try {
+      savedData = savedValue ? JSON.parse(savedValue) : null;
+    } catch (error) {
+      console.error('Unable to restore saved meeting state:', error);
+    }
+    const savedId = getMeetingId(savedData?.meeting || savedData || {});
+    const passedId = getMeetingId(passedData?.meeting || passedData || {});
+    if (hasSavedRecording(savedData) && (!passedData || savedId === passedId)) return savedData;
     if (passedData) {
       localStorage.setItem('active_live_meeting', JSON.stringify(passedData));
       return passedData;
     }
-    const saved = localStorage.getItem('active_live_meeting');
-    return saved ? JSON.parse(saved) : null;
+    return savedData;
   });
+  const [generatedContent, setGeneratedContent] = useState({
+    englishSummary: '',
+    myanmarSummary: '',
+    keyDecisions: [],
+    actionItems: [],
+  });
+  const [isGeneratingTranslation, setIsGeneratingTranslation] = useState(false);
+  const [translationComplete, setTranslationComplete] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [actionChosen, setActionChosen] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [frozenTimer, setFrozenTimer] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [speechActivity, setSpeechActivity] = useState('');
+  const [isRestoringMeeting, setIsRestoringMeeting] = useState(true);
 
-  const updatePlaybackUrl = (blob, chunkCount = audioChunksRef.current.length) => {
-    if (!blob.size) return;
-    const nextUrl = URL.createObjectURL(blob);
-    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
-    audioUrlRef.current = nextUrl;
-    setAudioUrl(nextUrl);
-    console.log('[audio] playback URL created:', nextUrl, 'chunks:', chunkCount, 'blob bytes:', blob.size, 'type:', blob.type);
+  const saveStoppedSession = async (meetingData, duration) => {
+    const meetingId = Number.parseInt(getMeetingId(meetingData), 10);
+    if (!Number.isInteger(meetingId)) return;
+    const stoppedAt = new Date().toISOString();
+    const session = {
+      meeting_id: meetingId,
+      id: meetingId,
+      status: 'stopped',
+      stopped_at: stoppedAt,
+      actual_ended_at: stoppedAt,
+      ended_at: stoppedAt,
+      updated_at: stoppedAt,
+      actual_duration: duration,
+      title: meetingData?.title || meetingData?.meeting_title || 'Untitled Meeting',
+      date: meetingData?.date || stoppedAt.split('T')[0],
+      room: meetingData?.room || meetingData?.location || 'Online Meeting',
+    };
+    try {
+      if (onSaveSession) {
+        await onSaveSession(meetingId, session);
+        return true;
+      }
+      await api.post(`/meeting-sessions/${meetingId}/status`, session);
+    } catch (error) {
+      console.error('Failed to save stopped meeting session:', error);
+    }
+    return false;
   };
+
+  useEffect(() => {
+    if (!isRecording || isPaused) return undefined;
+    const intervalId = window.setInterval(() => {
+      setRecordingSeconds((seconds) => seconds + 1);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isRecording, isPaused]);
+
+  useEffect(() => {
+    resetRecording();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMeetingData) {
+      setIsRestoringMeeting(false);
+      return undefined;
+    }
+    const meetingId = getMeetingId(selectedMeetingData?.meeting || selectedMeetingData || {});
+    if (restoredMeetingIdRef.current === meetingId) return undefined;
+    restoredMeetingIdRef.current = meetingId;
+    let cancelled = false;
+    setIsRestoringMeeting(true);
+
+    const hasLocalRecording = hasSavedRecording(selectedMeetingData);
+    if (hasLocalRecording) {
+      const completed = { ...selectedMeetingData, status: 'stopped', recording_completed: true };
+      localStorage.setItem('active_live_meeting', JSON.stringify(completed));
+      setStatus('ready');
+      setActionChosen(true);
+      setAudioUrl(selectedMeetingData.audio_url || null);
+      setUploadedAudioUrl(selectedMeetingData.audio_url || '');
+      setRecordingSeconds(Number(selectedMeetingData.duration_seconds || selectedMeetingData.actual_duration || 0));
+      handleTranscript(selectedMeetingData.transcript || '');
+      setGeneratedContent((current) => ({
+        ...current,
+        englishSummary: selectedMeetingData.ai_summary_en || '',
+        myanmarSummary: selectedMeetingData.ai_summary_my || '',
+      }));
+      setTranslationComplete(Boolean(selectedMeetingData.ai_summary_en || selectedMeetingData.ai_summary_my));
+    }
+    if (!/^\d+$/.test(meetingId)) {
+      restoredMeetingIdRef.current = meetingId;
+      setIsRestoringMeeting(false);
+      return undefined;
+    }
+    let restoreComplete = false;
+    (async () => {
+      try {
+        if (!cancelled && hasLocalRecording) {
+          const completed = { ...selectedMeetingData, status: 'stopped', recording_completed: true };
+          const savedInParent = await saveStoppedSession(completed, Number(completed.duration_seconds || completed.actual_duration || 0));
+          if (!savedInParent) {
+            window.dispatchEvent(new CustomEvent('sync-meeting-sessions', {
+              detail: { meeting_id: meetingId, id: meetingId, status: 'stopped' },
+            }));
+            if (refreshSessions) await refreshSessions();
+          }
+        }
+        const { data: responseData } = await api.get('/uploads', { params: { meeting_id: meetingId } });
+        const upload = responseData?.data?.data || responseData?.data || responseData?.result || responseData;
+        const stored = (() => {
+          try { return JSON.parse(localStorage.getItem('active_live_meeting') || 'null'); }
+          catch { return null; }
+        })();
+        if (!cancelled && upload?.audio_url) {
+          restoreComplete = true;
+          restoredMeetingIdRef.current = meetingId;
+          setUploadedAudioUrl(upload.audio_url);
+          setAudioUrl(upload.audio_url);
+          if (upload.transcript) handleTranscript(upload.transcript);
+          setGeneratedContent((current) => ({
+            ...current,
+            englishSummary: upload.ai_summary_en || current.englishSummary || '',
+            myanmarSummary: upload.ai_summary_my || current.myanmarSummary || '',
+          }));
+          setActionChosen(true);
+          setTranslationComplete(Boolean(upload.ai_summary_en || upload.ai_summary_my));
+          setStatus('ready');
+          const completed = {
+            ...(stored || selectedMeetingData),
+            status: 'stopped',
+            recording_completed: true,
+            audio_url: upload.audio_url,
+            transcript: upload.transcript || stored?.transcript || '',
+            ai_summary_en: upload.ai_summary_en || stored?.ai_summary_en || '',
+            ai_summary_my: upload.ai_summary_my || stored?.ai_summary_my || '',
+          };
+          localStorage.setItem('active_live_meeting', JSON.stringify(completed));
+          setSelectedMeetingData(completed);
+          if (!hasLocalRecording) {
+            const savedInParent = await saveStoppedSession(completed, Number(completed.duration_seconds || completed.actual_duration || 0));
+            if (!savedInParent) {
+              window.dispatchEvent(new CustomEvent('sync-meeting-sessions', {
+                detail: { meeting_id: meetingId, id: meetingId, status: 'stopped' },
+              }));
+              if (refreshSessions) await refreshSessions();
+            }
+          }
+        }
+      } catch (error) {
+        if (error.response?.status !== 404) console.error('Unable to restore meeting upload:', error);
+        if (hasSavedRecording(selectedMeetingData)) setStatus('ready');
+      } finally {
+        if (!cancelled) {
+          restoreComplete = true;
+          restoredMeetingIdRef.current = meetingId;
+          setIsRestoringMeeting(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (!restoreComplete && restoredMeetingIdRef.current === meetingId) restoredMeetingIdRef.current = null;
+    };
+  }, [selectedMeetingData]);
 
   useEffect(() => () => {
     audioRef.current?.pause();
@@ -143,55 +362,222 @@ export default function LiveMeeting({
     }
   };
 
+  const onDownloadAudio = async () => {
+    try {
+      let blob = recordedAudioBlobRef.current;
+      if (!blob && audioUrl) {
+        const response = await fetch(audioUrl);
+        if (!response.ok) throw new Error(`Audio download failed (${response.status}).`);
+        blob = await response.blob();
+      }
+      if (!blob?.size) throw new Error('No recorded audio is available to download.');
+
+      const sourceBlob = blob.type ? blob : new Blob([blob], { type: 'audio/webm' });
+      let Mp3Encoder = window.lamejs?.Mp3Encoder;
+      if (!Mp3Encoder) {
+        const { default: encoderScriptUrl } = await import('lamejs/lame.min.js?url');
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = encoderScriptUrl;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('The MP3 encoder script could not be loaded.'));
+          document.head.appendChild(script);
+        });
+        Mp3Encoder = window.lamejs?.Mp3Encoder;
+      }
+      if (!Mp3Encoder) throw new Error('The MP3 encoder could not be loaded.');
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const OfflineAudioContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!AudioContextClass || !OfflineAudioContextClass) throw new Error('This browser cannot convert the recording to MP3.');
+
+      const audioContext = new AudioContextClass();
+      let mp3Blob;
+      try {
+        const decodedAudio = await audioContext.decodeAudioData(await sourceBlob.arrayBuffer());
+        const channelCount = Math.min(decodedAudio.numberOfChannels, 2);
+        const sampleRate = 44100;
+        const offlineContext = new OfflineAudioContextClass(
+          channelCount,
+          Math.ceil(decodedAudio.duration * sampleRate),
+          sampleRate
+        );
+        const source = offlineContext.createBufferSource();
+        source.buffer = decodedAudio;
+        source.connect(offlineContext.destination);
+        source.start();
+        const resampledAudio = await offlineContext.startRendering();
+        const encoder = new Mp3Encoder(channelCount, sampleRate, 128);
+        const left = resampledAudio.getChannelData(0);
+        const right = channelCount > 1 ? resampledAudio.getChannelData(1) : null;
+        const mp3Chunks = [];
+        const frameSize = 1152;
+
+        for (let offset = 0; offset < resampledAudio.length; offset += frameSize) {
+          const frameLength = Math.min(frameSize, resampledAudio.length - offset);
+          const leftFrame = new Int16Array(frameLength);
+          const rightFrame = right ? new Int16Array(frameLength) : null;
+          for (let i = 0; i < frameLength; i += 1) {
+            const leftSample = Math.max(-1, Math.min(1, left[offset + i]));
+            leftFrame[i] = leftSample < 0 ? leftSample * 0x8000 : leftSample * 0x7fff;
+            if (rightFrame) {
+              const rightSample = Math.max(-1, Math.min(1, right[offset + i]));
+              rightFrame[i] = rightSample < 0 ? rightSample * 0x8000 : rightSample * 0x7fff;
+            }
+          }
+          const encodedFrame = rightFrame
+            ? encoder.encodeBuffer(leftFrame, rightFrame)
+            : encoder.encodeBuffer(leftFrame);
+          if (encodedFrame.length) mp3Chunks.push(encodedFrame);
+        }
+        const finalFrame = encoder.flush();
+        if (finalFrame.length) mp3Chunks.push(finalFrame);
+        mp3Blob = new Blob(mp3Chunks, { type: 'audio/mpeg' });
+      } finally {
+        await audioContext.close();
+      }
+
+      const downloadUrl = URL.createObjectURL(mp3Blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `Meeting_Record_${Date.now()}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    } catch (error) {
+      console.error('Unable to download recorded audio:', error);
+    }
+  };
+
+  const setAudioPreview = (blob) => {
+    if (!blob?.size) return;
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    const previewUrl = URL.createObjectURL(blob);
+    audioUrlRef.current = previewUrl;
+    setAudioUrl(previewUrl);
+  };
+
+  const loadMeetingUpload = async (meetingId) => {
+    if (!meetingId) {
+      console.warn('Cannot load meeting upload without a meeting ID.');
+      return;
+    }
+    try {
+      const { data: responseData } = await api.get('/uploads', {
+        params: { meeting_id: meetingId },
+      });
+      const upload = responseData?.data?.data || responseData?.data || responseData?.result || responseData;
+      if (upload.audio_url) {
+        setUploadedAudioUrl(upload.audio_url);
+        setAudioUrl(upload.audio_url);
+      }
+      const transcript = upload.transcript;
+      if (transcript) handleTranscript(transcript);
+      if (upload.ai_summary_en || upload.ai_summary_my) {
+        setGeneratedContent((current) => ({
+          ...current,
+          englishSummary: upload.ai_summary_en || current.englishSummary || '',
+          myanmarSummary: upload.ai_summary_my || current.myanmarSummary || '',
+        }));
+      }
+      return upload;
+    } catch (error) {
+      console.error('Unable to load meeting upload:', error.response?.data?.detail || error);
+    }
+  };
+
   useEffect(() => {
     const passedData = propMeetingData || location.state;
     if (passedData) {
-      setSelectedMeetingData(passedData);
-      localStorage.setItem('active_live_meeting', JSON.stringify(passedData));
+      let savedData = null;
+      try { savedData = JSON.parse(localStorage.getItem('active_live_meeting') || 'null'); } catch { /* ignore invalid saved state */ }
+      const savedId = getMeetingId(savedData?.meeting || savedData || {});
+      const passedId = getMeetingId(passedData?.meeting || passedData || {});
+      const meetingData = hasSavedRecording(savedData) && savedId === passedId ? savedData : passedData;
+      setSelectedMeetingData(meetingData);
+      localStorage.setItem('active_live_meeting', JSON.stringify(meetingData));
     }
   }, [propMeetingData, location.state]);
 
   const rawMeeting = selectedMeetingData?.meeting || selectedMeetingData || {};
-
-  const mockSummary = {
-    englishSummary: "This is a test English summary for the meeting discussion.",
-    myanmarSummary: "ဒါကတော့ အစည်းအဝေးအတွက် စမ်းသပ်ရေးသားထားတဲ့ မြန်မာလို အကျဉ်းချုပ် ဖြစ်ပါတယ်။",
-    keyDecisions: [
-      "Decision 1: Approved budget",
-      "Decision 2: Next meeting on Friday"
-    ],
-    actionItems: [
-      {
-        task: "Prepare report",
-        owner: "Aung Aung",
-        dueDate: "2026-09-12",
-        status: "To Do",
-        priority: "High"
-      }
-    ],
-  };
 
   const formattedStartTime = formatTimeToAMPM(rawMeeting.startTime || rawMeeting.start_time || rawMeeting.time);
 
   const meeting = { 
     ...rawMeeting, 
     startTime: formattedStartTime,
-    ...mockSummary
+    ...generatedContent
+  };
+  const isViewMode = location.state?.mode === 'view' || selectedMeetingData?.mode === 'view';
+  const showModal = !isRestoringMeeting && !isViewMode && status === 'idle' && !actionChosen && !hasSavedRecording(selectedMeetingData);
+
+  const handleGenerateTranslation = async () => {
+    setIsGeneratingTranslation(true);
+    if (!uploadedAudioUrl) {
+      const message = 'Upload the recording before generating its summary.';
+      setStatus('error');
+      setErrorMessage(message);
+      window.alert(message);
+      setIsGeneratingTranslation(false);
+      return;
+    }
+    setStatus('processing_ai');
+    setErrorMessage('');
+    try {
+      const payload = {
+        meeting_id: getMeetingId(rawMeeting),
+        audio_url: uploadedAudioUrl,
+      };
+      const headers = { 'Content-Type': 'application/json' };
+      console.log('[translate] request payload:', payload);
+      console.log('[translate] request headers:', headers);
+      const { data: result } = await api.post('/translate', payload, {
+        headers,
+      });
+      const content = result;
+      const transcript = content.transcript || '';
+      handleTranscript(transcript);
+      setGeneratedContent({
+        englishSummary: content.summary_en || '',
+        myanmarSummary: content.summary_my || '',
+        keyDecisions: Array.isArray(content.key_decisions) ? content.key_decisions : [],
+        actionItems: Array.isArray(content.action_items) ? content.action_items : [],
+      });
+      const savedMeeting = (() => {
+        try { return JSON.parse(localStorage.getItem('active_live_meeting') || 'null'); }
+        catch { return null; }
+      })();
+      const completedMeeting = {
+        ...(savedMeeting || rawMeeting),
+        status: 'stopped',
+        recording_completed: true,
+        recording_uploaded: true,
+        audio_url: uploadedAudioUrl,
+        transcript,
+        ai_summary_en: content.summary_en || '',
+        ai_summary_my: content.summary_my || '',
+        key_decisions: content.key_decisions || [],
+        action_items: content.action_items || [],
+      };
+      localStorage.setItem('active_live_meeting', JSON.stringify(completedMeeting));
+      setSelectedMeetingData(completedMeeting);
+      setTranslationComplete(true);
+      setStatus('ready');
+    } catch (error) {
+      console.error('Unable to generate or fetch AI meeting content:', error);
+      errorSourceRef.current = 'ai';
+      const message = error.response?.data?.detail || error.response?.data?.message || error.message || 'AI processing failed. Please retry.';
+      setStatus('error');
+      setErrorMessage(message);
+      window.alert(message);
+    } finally {
+      setIsGeneratingTranslation(false);
+    }
   };
 
   const handleGoHome = () => {
     navigate('/dashboard');
   };
-
-  useEffect(() => {
-    const isViewMode = location.state?.mode === 'view' || selectedMeetingData?.mode === 'view';
-
-    if (isViewMode || meeting?.status === 'stopped' || status !== 'idle' || actionChosen) {
-      setShowModal(false);
-    } else {
-      setShowModal(true);
-    }
-  }, [status, selectedMeetingData, meeting?.status, location.state, actionChosen]);
 
   const saveRunningSession = async (meetingData) => {
     try {
@@ -214,23 +600,28 @@ export default function LiveMeeting({
       if (onSaveSession) {
         await onSaveSession(meetingId, sessionPayload);
       } else {
-        await fetch(`${apiUrl}/${meetingId}/status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sessionPayload)
-        });
+        await api.post(`/meeting-sessions/${meetingId}/status`, sessionPayload);
       }
 
-      if (refreshSessions) {
-        await refreshSessions();
-      }
+      if (!onSaveSession && refreshSessions) await refreshSessions();
     } catch (err) {
       console.error("Failed to save running session status:", err);
     }
   };
 
   const onStartRecording = async (type) => {
+    if (uploadedAudioUrl || hasSavedRecording(selectedMeetingData)) {
+      setStatus('ready');
+      setActionChosen(true);
+      return;
+    }
+    setRecordingSeconds(0);
+    retryActionRef.current = type;
+    retryFileRef.current = null;
     if (type === 'quick_voice_note' || type === 'live_transcription') {
+      let startupStage = 'microphone';
+      audioChunksRef.current = [];
+      recordedAudioBlobRef.current = null;
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (type === 'live_transcription' && SpeechRecognition) {
         try {
@@ -304,16 +695,44 @@ export default function LiveMeeting({
         window.alert('Live transcription is not supported by this browser.');
       }
       try {
+        setStatus('requesting_mic');
+        setErrorMessage('');
+        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+          const error = new Error('Microphone access is not supported in this browser or requires a secure context (HTTPS/localhost).');
+          console.error('3. mediaDevices API unavailable:', error);
+          console.error('Microphone Access Error: ', error);
+          shouldRestartSpeechRef.current = false;
+          isRecordingRef.current = false;
+          speechRecognitionRef.current?.stop();
+          setStatus('error');
+          errorSourceRef.current = 'mic';
+          setErrorMessage(error.message);
+          return;
+        }
         if (window.isSecureContext === false && window.location.hostname !== 'localhost') {
           throw new Error('Microphone access requires HTTPS (or localhost).');
         }
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('Microphone recording is not supported by this browser.');
+
+        let stream;
+        try {
+          stream = await getUserMediaWithTimeout({ audio: true });
+        } catch (error) {
+          console.error('4. Catch block hit: ', error);
+          console.error('Microphone Access Error: ', error);
+          shouldRestartSpeechRef.current = false;
+          isRecordingRef.current = false;
+          speechRecognitionRef.current?.stop();
+          setStatus('error');
+          errorSourceRef.current = 'mic';
+          setErrorMessage(error.message || error.name || 'Microphone access denied or unavailable.');
+          return;
         }
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaStreamRef.current = stream;
+        // Permission is resolved now; later recorder/upload setup must not look like a pending mic prompt.
+        setStatus('initializing_recorder');
+        startupStage = 'media_recorder';
         if (!window.MediaRecorder) throw new Error('Audio recording is not supported by this browser.');
-        const formats = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+        const formats = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
         const mimeType = formats.find((format) => MediaRecorder.isTypeSupported?.(format));
         let recorder;
         try {
@@ -324,7 +743,6 @@ export default function LiveMeeting({
         }
 
         mediaRecorderRef.current = recorder;
-        audioChunksRef.current = [];
         recordedDurationMsRef.current = 0;
         recordingSegmentStartRef.current = null;
         setAudioDuration(0);
@@ -336,19 +754,9 @@ export default function LiveMeeting({
         recorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
             audioChunksRef.current.push(event.data);
-            console.log('[audio] dataavailable:', { chunkBytes: event.data.size, chunks: audioChunksRef.current.length, type: event.data.type });
-            if (mediaRecorderRef.current?.state === 'paused' || mediaRecorderRef.current?.state === 'inactive') {
-              const blob = new Blob(audioChunksRef.current, {
-                type: recorder.mimeType || event.data.type || 'audio/webm',
-              });
-              updatePlaybackUrl(blob, audioChunksRef.current.length);
-            }
           }
         };
         recorder.addEventListener('stop', () => {
-          const blob = new Blob(audioChunksRef.current, {
-            type: recorder.mimeType || audioChunksRef.current[0]?.type || '',
-          });
           if (recordingSegmentStartRef.current !== null) {
             recordedDurationMsRef.current += Date.now() - recordingSegmentStartRef.current;
             recordingSegmentStartRef.current = null;
@@ -356,20 +764,51 @@ export default function LiveMeeting({
           setAudioDuration(Math.ceil(recordedDurationMsRef.current / 1000));
           setIsRecording(false);
           setIsPaused(false);
-          updatePlaybackUrl(blob, audioChunksRef.current.length);
-          console.log('Recording audio Blob:', blob);
-          window.dispatchEvent(new CustomEvent('meeting-audio-recorded', { detail: { blob } }));
+          const contentType = recorder.mimeType || audioChunksRef.current[0]?.type || 'audio/webm';
+          const finalBlob = new Blob(audioChunksRef.current, { type: contentType });
+          recordedAudioBlobRef.current = finalBlob;
+          setAudioPreview(finalBlob);
           stream.getTracks().forEach((track) => track.stop());
           mediaStreamRef.current = null;
           mediaRecorderRef.current = null;
+          setStatus('uploading');
+          setIsUploading(true);
+          uploadCompletionRef.current = (async () => {
+            if (!finalBlob.size) throw new Error('The recording produced an empty audio file.');
+            const extension = getAudioExtension(contentType);
+            const uploader = await createMultipartUpload({
+              meetingId: getMeetingId(rawMeeting),
+              fileName: `meeting-${getMeetingId(rawMeeting)}.${extension}`,
+              contentType,
+              size: finalBlob.size,
+            });
+            uploader.append(finalBlob, setUploadProgress);
+            const uploaded = await uploader.complete(setUploadProgress);
+            audioChunksRef.current = [];
+            setUploadedAudioUrl(uploaded.fileUrl);
+            persistUploadedAudio(rawMeeting, uploaded.fileUrl);
+            return uploaded;
+          })().catch((error) => {
+            console.error('Recording multipart upload failed:', error);
+            errorSourceRef.current = 'recording_upload';
+            setStatus('error');
+            setErrorMessage(error.response?.data?.message || error.message || 'Audio upload failed. Retry the upload.');
+            throw error;
+          }).finally(() => {
+            setIsUploading(false);
+          });
+          uploadCompletionRef.current.catch(() => {});
         }, { once: true });
 
+        startupStage = 'recorder_start';
         recorder.start(1000);
         setIsRecording(true);
         setIsPaused(false);
         recordingSegmentStartRef.current = Date.now();
       } catch (err) {
-        console.error('Unable to start audio recording:', err);
+        console.error('Microphone/recording initialization failed at stage:', startupStage, err);
+        if (startupStage === 'microphone') console.error('Microphone Access Error: ', err);
+        else console.error(`Audio startup failed during ${startupStage}:`, err);
         isRecordingRef.current = false;
         setIsRecording(false);
         setIsPaused(false);
@@ -377,31 +816,108 @@ export default function LiveMeeting({
         mediaStreamRef.current = null;
         shouldRestartSpeechRef.current = false;
         speechRecognitionRef.current?.stop();
-        const message = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
-          ? 'Microphone permission was denied. Allow microphone access in your browser settings and try again.'
-          : /HTTPS|secure/i.test(err?.message || '')
-            ? 'Microphone access requires a secure HTTPS connection.'
-            : 'Unable to access the microphone. Check your browser permissions and try again.';
-        window.alert(message);
+        const message = startupStage === 'microphone'
+          ? err?.name === 'TimeoutError'
+            ? 'Microphone access timed out. Check the browser permission prompt and secure connection, then retry.'
+            : err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
+            ? 'Microphone permission was denied. Allow microphone access in your browser settings and try again.'
+            : /HTTPS|secure/i.test(err?.message || '')
+              ? 'Microphone access requires a secure HTTPS connection.'
+              : err?.name === 'NotFoundError'
+                ? 'No microphone was found. Connect a microphone and try again.'
+                : `Unable to access the microphone${err?.message ? `: ${err.message}` : '. Check browser permissions and try again.'}`
+          : startupStage === 'media_recorder'
+            ? `The microphone opened, but audio recording could not be initialized${err?.message ? `: ${err.message}` : '.'}`
+            : startupStage === 's3_upload'
+              ? `The microphone is available, but an S3 upload session could not be created${err?.response?.data?.message ? `: ${err.response.data.message}` : err?.message ? `: ${err.message}` : '.'}`
+              : `Audio recording could not start${err?.message ? `: ${err.message}` : '.'}`;
+        setStatus('error');
+        errorSourceRef.current = startupStage === 'microphone' ? 'mic' : startupStage === 's3_upload' ? 'upload_init' : 'recorder_start';
+        setErrorMessage(message);
         return;
       }
     }
 
     setActionChosen(true);
-    setShowModal(false);
-    handleStart(type); 
+    handleStart(type);
     saveRunningSession(rawMeeting); 
   };
 
-  const onUpload = (e) => {
+  const onUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (uploadedAudioUrl || hasSavedRecording(selectedMeetingData)) {
+      e.target.value = '';
+      return;
+    }
+    if (!file.size || !file.type.startsWith('audio/')) {
+      setStatus('error');
+      errorSourceRef.current = 'file_upload';
+      setErrorMessage('Choose a non-empty audio file to upload.');
+      e.target.value = '';
+      return;
+    }
+    retryFileRef.current = file;
+    recordedAudioBlobRef.current = file;
     setActionChosen(true);
-    setShowModal(false);
-    handleFileUpload(e);
-    saveRunningSession(rawMeeting);
+    setFileName(file.name);
+    setStatus('uploading');
+    setErrorMessage('');
+    setTranslationComplete(false);
+    setActionType('upload_file');
+    try {
+      const uploaded = await uploadFileToS3(file, { meetingId: getMeetingId(rawMeeting), onProgress: setUploadProgress });
+      setUploadedAudioUrl(uploaded.fileUrl);
+      persistUploadedAudio(rawMeeting, uploaded.fileUrl);
+      await loadMeetingUpload(getMeetingId(rawMeeting));
+      setStatus('ready');
+      await saveRunningSession(rawMeeting);
+    } catch (error) {
+      console.error('Audio upload failed:', error);
+      errorSourceRef.current = 'file_upload';
+      setStatus('error');
+      setErrorMessage(error.response?.data?.message || error.message || 'Upload failed. Retry the upload.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const onRetry = async () => {
+    setErrorMessage('');
+    if (errorSourceRef.current === 'ai') {
+      await handleGenerateTranslation();
+      return;
+    }
+    if (errorSourceRef.current === 'recording_upload') {
+      setErrorMessage('The recording upload could not be resumed. Please record a new session and retry.');
+      return;
+    }
+    if (uploadedAudioUrl || hasSavedRecording(selectedMeetingData)) {
+      setStatus('ready');
+      return;
+    }
+    if (retryFileRef.current) {
+      setStatus('uploading');
+      try {
+        const uploaded = await uploadFileToS3(retryFileRef.current, { meetingId: getMeetingId(rawMeeting), onProgress: setUploadProgress });
+        setUploadedAudioUrl(uploaded.fileUrl);
+        persistUploadedAudio(rawMeeting, uploaded.fileUrl);
+        await loadMeetingUpload(getMeetingId(rawMeeting));
+        setStatus('ready');
+      } catch (error) {
+        setStatus('error');
+        setErrorMessage(error.response?.data?.message || error.message || 'Upload failed. Retry the upload.');
+      }
+      return;
+    }
+    await onStartRecording(retryActionRef.current);
   };
 
   const onStopRecording = async () => {
+    let uploadError = null;
     try {
+      setIsRecording(false);
+      handleStop();
       shouldRestartSpeechRef.current = false;
       isRecordingRef.current = false;
       clearTimeout(speechRestartTimerRef.current);
@@ -411,52 +927,66 @@ export default function LiveMeeting({
         recordedDurationMsRef.current += Date.now() - recordingSegmentStartRef.current;
         recordingSegmentStartRef.current = null;
       }
+      const elapsedSeconds = Math.floor(recordedDurationMsRef.current / 1000);
+      setRecordingSeconds(elapsedSeconds);
       setAudioDuration(Math.ceil(recordedDurationMsRef.current / 1000));
       if (mediaRecorderRef.current?.state === 'recording' || mediaRecorderRef.current?.state === 'paused') {
+        const recorderStopped = new Promise((resolve) => mediaRecorderRef.current.addEventListener('stop', resolve, { once: true }));
         mediaRecorderRef.current.stop();
+        setStatus('uploading');
+        await recorderStopped;
+        try { await uploadCompletionRef.current; }
+        catch (error) { uploadError = error; }
       }
-      setIsRecording(false);
-      setIsPaused(false);
-      setFrozenTimer(timer);
 
       const target = meeting || rawMeeting;
-      const meetingId = getMeetingId(target);
-      
-      const stoppedAtIso = new Date().toISOString();
+      const currentMeetingId = Number.parseInt(getMeetingId(target), 10);
+      if (!Number.isInteger(currentMeetingId)) {
+        throw new Error(`Cannot save meeting record with invalid meeting ID: ${getMeetingId(target)}`);
+      }
 
-      const sessionPayload = {
-        meeting_id: meetingId,
-        id: meetingId,
+      await api.patch(`/meetings/${currentMeetingId}`, { status: 'stopped' });
+      setIsPaused(false);
+      const savedInParent = await saveStoppedSession(target, elapsedSeconds);
+      setGeneratedContent({
+        englishSummary: '',
+        myanmarSummary: '',
+        keyDecisions: [],
+        actionItems: [],
+      });
+      const upload = await loadMeetingUpload(currentMeetingId);
+
+      setStatus(uploadError ? 'error' : 'ready');
+      setErrorMessage(uploadError ? uploadError.response?.data?.message || uploadError.message || 'Audio upload failed.' : '');
+      if (!savedInParent) {
+        window.dispatchEvent(new CustomEvent('sync-meeting-sessions', {
+          detail: { meeting_id: currentMeetingId, id: currentMeetingId, status: 'stopped' },
+        }));
+      }
+      const completedMeeting = {
+        ...target,
         status: 'stopped',
-        stopped_at: stoppedAtIso,
-        updated_at: stoppedAtIso,
-        actual_ended_at: stoppedAtIso,
-        actual_duration: timer,
+        recording_completed: true,
+        recording_uploaded: Boolean(upload?.audio_url || uploadedAudioUrl),
+        audio_url: upload?.audio_url || uploadedAudioUrl || '',
+        transcript: upload?.transcript || liveTranscript || '',
+        ai_summary_en: upload?.ai_summary_en || '',
+        ai_summary_my: upload?.ai_summary_my || '',
+        duration_seconds: elapsedSeconds,
       };
+      localStorage.setItem('active_live_meeting', JSON.stringify(completedMeeting));
+      setSelectedMeetingData(completedMeeting);
 
-      if (onSaveSession) {
-        await onSaveSession(meetingId, sessionPayload);
-      } else {
-        await fetch(`${apiUrl}/${meetingId}/status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sessionPayload)
-        });
-      }
-      window.dispatchEvent(new CustomEvent('sync-meeting-sessions', { detail: sessionPayload }));
-      localStorage.removeItem('active_live_meeting');
-
-      handleStop();
-
-      if (refreshSessions) {
-        await refreshSessions();
-      }
+      if (!savedInParent && refreshSessions) await refreshSessions();
     } catch (err) {
-      console.error("Failed to stop recording/session:", err);
+      console.error('Failed to save recording or stop meeting:', err);
+      errorSourceRef.current = 'recording_upload';
+      setStatus('error');
+      setErrorMessage(err.response?.data?.message || err.message || 'Audio was uploaded, but the meeting record could not be saved.');
     }
   };
 
-  const onPauseRecording = () => {
+  const onPauseRecording = async () => {
     shouldRestartSpeechRef.current = false;
     isRecordingRef.current = false;
     speechRecognitionRef.current?.stop();
@@ -467,16 +997,16 @@ export default function LiveMeeting({
         recordingSegmentStartRef.current = null;
       }
       setAudioDuration(Math.ceil(recordedDurationMsRef.current / 1000));
-      mediaRecorderRef.current.pause();
+      const dataFlushed = new Promise((resolve) => {
+        recorder.addEventListener('dataavailable', resolve, { once: true });
+      });
+      recorder.requestData();
+      recorder.pause();
       setIsRecording(false);
       setIsPaused(true);
-      console.log('[audio] pause requested; collected chunks:', audioChunksRef.current.length);
-      if (audioChunksRef.current.length > 0) {
-        const partialBlob = new Blob(audioChunksRef.current, {
-          type: recorder.mimeType || audioChunksRef.current[0]?.type || 'audio/webm',
-        });
-        updatePlaybackUrl(partialBlob, audioChunksRef.current.length);
-      }
+      await dataFlushed;
+      const contentType = recorder.mimeType || audioChunksRef.current[0]?.type || 'audio/webm';
+      setAudioPreview(new Blob(audioChunksRef.current, { type: contentType }));
     }
     handlePause();
   };
@@ -506,18 +1036,17 @@ export default function LiveMeeting({
     if (audioRef.current) audioRef.current.currentTime = 0;
   };
 
-  const isMeetingStopped = meeting?.status === 'stopped' || selectedMeetingData?.status === 'stopped';
-  const displayStatus = isMeetingStopped ? 'stopped' : status;
-  const displayTimer = isMeetingStopped ? (frozenTimer !== null ? frozenTimer : timer) : timer;
+  const isMeetingStopped = hasSavedRecording(selectedMeetingData) || isStoppedSession(meeting);
+  const displayStatus = isMeetingStopped && status === 'idle' ? 'ready' : status;
+  const displayTimer = recordingSeconds;
 
   return (
-    <div className="relative flex flex-col gap-6 max-w-[1400px] mx-auto w-full pb-10">
+    <div className="relative flex w-full min-w-0 min-h-screen flex-col gap-6 max-md:gap-4 mx-auto py-4 px-2 sm:px-4 max-md:w-auto max-md:-mx-8 max-md:-mt-8 max-md:px-3 max-md:pt-4 max-md:pb-24">
 
       <audio
         ref={audioRef}
         src={audioUrl || undefined}
         hidden
-        onLoadedMetadata={(event) => console.log('[audio] player source loaded:', event.currentTarget.currentSrc)}
         onError={(event) => console.error('[audio] player source error:', event.currentTarget.error, event.currentTarget.currentSrc)}
         onPlay={() => setIsAudioPlaying(true)}
         onPause={() => setIsAudioPlaying(false)}
@@ -543,26 +1072,35 @@ export default function LiveMeeting({
         actionType={actionType} 
         timer={displayTimer} 
         fileName={fileName} 
-        formatTime={formatTime} 
+        formatTime={formatRecordingTime}
         handleStop={onStopRecording}
         handlePause={onPauseRecording}
         handleResume={onResumeRecording}
+        uploadProgress={uploadProgress}
+        errorMessage={errorMessage}
+        onRetry={onRetry}
+        activityMessage={speechActivity}
+        isUploading={isUploading}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 mt-2 items-start">
+      <div className="grid w-full min-w-0 grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6 max-md:gap-4 mt-2 items-start">
         <LeftPanel 
           status={displayStatus}
           timer={displayTimer} 
-          formatTime={formatTime}
+          formatTime={formatRecordingTime}
           handlePause={onPauseRecording} 
           handleResume={onResumeRecording} 
           audioUrl={audioUrl}
+          onDownloadAudio={onDownloadAudio}
           isAudioPlaying={isAudioPlaying}
           playbackTime={playbackTime}
           audioDuration={audioDuration}
           onPlaybackToggle={onPlaybackToggle}
+          onGenerateTranslation={handleGenerateTranslation}
+          isGeneratingTranslation={isGeneratingTranslation}
           englishSummary={meeting.englishSummary}
           myanmarSummary={meeting.myanmarSummary}
+          translationComplete={translationComplete}
         />
         <RightPanel 
           status={displayStatus} 

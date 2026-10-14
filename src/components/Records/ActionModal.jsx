@@ -57,7 +57,7 @@ export default function ActionModal({ showModal, handleStart, fileInputRef, hand
             bg="bg-amber-50" 
             title="Upload File" 
             desc="Import existing audio for transcription" 
-            onClick={() => fileInputRef.current.click()} 
+            onClick={() => fileInputRef.current?.click()} 
           />
           
           <input 
@@ -65,7 +65,7 @@ export default function ActionModal({ showModal, handleStart, fileInputRef, hand
             ref={fileInputRef} 
             onChange={handleFileUpload} 
             className="hidden" 
-            accept="audio/*,video/*" 
+            accept="audio/*" 
           />
         </div>
       </div>

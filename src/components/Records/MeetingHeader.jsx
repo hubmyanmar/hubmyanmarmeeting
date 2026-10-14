@@ -59,26 +59,36 @@ export default function MeetingHeader({
   const handleDownloadPDF = () => {
     if (!isReady) return;
 
-    const actionRowsHtml = Array.isArray(actionItems) ? actionItems.map(item => `
+    const escapeHtml = (value) => formatDisplayValue(value, '—').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
+    const attendees = (Array.isArray(participants) ? participants : [])
+      .map((person) => formatDisplayValue(person?.name || person?.username || person?.email || person, ''))
+      .filter(Boolean);
+    const actionRowsHtml = (Array.isArray(actionItems) ? actionItems : []).map((item) => `
       <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${formatDisplayValue(item.task)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${formatDisplayValue(item.owner)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">${formatDisplayValue(item.dueDate)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #f3f4f6;">
-          <span style="background: #FFF4ED; color: #B93815; padding: 3px 8px; border-radius: 6px; font-size: 11px;">
-            ${formatDisplayValue(item.status)}
-          </span>
-        </td>
+        <td>${escapeHtml(item?.task || item?.action || item?.title || item?.description)}</td>
+        <td>${escapeHtml(item?.owner || item?.assignee)}</td>
+        <td>${escapeHtml(item?.dueDate || item?.due_date)}</td>
+        <td>${escapeHtml(item?.status)}</td>
       </tr>
-    `).join('') : '';
+    `).join('');
+    const decisionsHtml = (Array.isArray(keyDecisions) ? keyDecisions : [])
+      .map((decision) => `<li>${escapeHtml(decision)}</li>`).join('');
+    const dateValue = safeDateStr
+      ? (!isNaN(parsedDate.getTime())
+        ? parsedDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })
+        : safeDateStr)
+      : '—';
+    const timeValue = [safeStartTime, safeEndTime].filter(Boolean).join(' – ') || '—';
+    const pdfTitle = escapeHtml(formatDisplayValue(title));
+    const roomValue = escapeHtml(formatDisplayValue(room));
 
-    const decisionsHtml = Array.isArray(keyDecisions) ? keyDecisions.map(d => `<li style="margin-bottom: 8px;">✔ ${formatDisplayValue(d)}</li>`).join('') : '';
-    
     const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${safeTitle} - Meeting Summary</title>
+          <title>${pdfTitle} - Meeting Summary</title>
           <style>
             @page { margin: 15mm; }
             body { font-family: sans-serif; color: #1f2937; line-height: 1.6; padding: 10px; }
@@ -88,23 +98,23 @@ export default function MeetingHeader({
             .meta-info span { margin-right: 16px; display: inline-block; }
             .section-title { font-size: 15px; font-weight: 600; color: #6d28d9; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
             table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-            th { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; }
+            th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; }
           </style>
         </head>
         <body>
           <div class="header">
-            <div class="title">${safeTitle}</div>
+            <div class="title">${pdfTitle}</div>
             <div class="meta-info">
-              <span>📅 ${formattedDate}</span>
-              <span>🕒 ${safeStartTime} ${safeEndTime ? `- ${safeEndTime}` : ''}</span>
-              <span>📍 ${safeRoom}</span>
-              <span>👥 ${Array.isArray(participants) ? participants.length : 0} Attendees</span>
+              <span>Date: ${escapeHtml(dateValue)}</span>
+              <span>Time: ${escapeHtml(timeValue)}</span>
+              <span>Location: ${roomValue || '—'}</span>
             </div>
+            <div class="meta-info">Attendees: ${attendees.length ? attendees.map(escapeHtml).join(', ') : '—'}</div>
           </div>
           <div class="section-title">AI Summary (English)</div>
-          <p>${formatDisplayValue(englishSummary)}</p>
+          <p>${escapeHtml(englishSummary)}</p>
           <div class="section-title">AI Summary (Myanmar)</div>
-          <p>${formatDisplayValue(myanmarSummary)}</p>
+          <p>${escapeHtml(myanmarSummary)}</p>
           <div class="section-title">Key Decisions</div>
           <ul>${decisionsHtml}</ul>
           <div class="section-title">Action Items</div>
@@ -138,15 +148,15 @@ export default function MeetingHeader({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center text-sm font-medium text-gray-500">
+    <div className="flex min-w-0 flex-col gap-6 max-md:gap-4">
+      <div className="flex flex-wrap items-center gap-y-1 text-sm font-medium text-gray-500">
         <span className="text-violet-600 cursor-pointer hover:underline">Meeting Records</span>
         <ChevronRight size={16} className="mx-2" />
         <span className="text-gray-900">{safeTitle}</span>
       </div>
       
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
+      <div className="flex min-w-0 flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl lg:text-[28px] font-bold text-gray-900 mb-3">{safeTitle}</h1>
           
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
@@ -162,15 +172,12 @@ export default function MeetingHeader({
               <div className="flex items-center ml-2">
                 <div className="flex -space-x-2">
                   {visibleParticipants.map((p, i) => {
-                    // p က object ဖြစ်နေရင် name, username, email ဒါမှမဟုတ် index ပေါ်မူတည်ပြီး သေချာထုတ်ရန်
                     let pName = 'User';
                     if (typeof p === 'object' && p !== null) {
                       pName = p.name || p.username || p.email || p.title || `User ${i + 1}`;
                     } else if (typeof p === 'string') {
                       pName = p;
                     }
-
-                    // နာမည်ရဲ့ ပထမဆုံး စာလုံးတစ်လုံးတည်းကိုသာ ယူခြင်း (ဥပမာ - "Aung Min" ဆိုရင် "A")
                     const trimmedName = String(pName).trim();
                     let initial = trimmedName.length > 0 ? trimmedName.charAt(0).toUpperCase() : 'U';
 
@@ -191,7 +198,7 @@ export default function MeetingHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 lg:w-auto lg:justify-end">
           <button onClick={handleDownloadPDF} disabled={!isReady} className="px-4 py-2 text-sm font-semibold border rounded-lg text-violet-600 border-violet-200 hover:bg-violet-50 disabled:opacity-50">
             Download PDF
           </button>

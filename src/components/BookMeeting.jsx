@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import BookingForm from './books/BookingForm';
 import RoomAvailability from './books/RoomAvailability';
+import api from '../api';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -31,8 +32,6 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
   const [fetchedMeetings, setFetchedMeetings] = useState([]);
   const [rooms, setRooms] = useState([]);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
   const showAlert = (icon, title, text) => {
     Swal.fire({
       icon,
@@ -46,35 +45,32 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/meeting-rooms/`);
-        if (res.ok) {
-          const roomData = await res.json();
-          setRooms(Array.isArray(roomData) ? roomData : []);
-        }
+        const { data: roomData } = await api.get('/meeting-rooms/');
+        setRooms(Array.isArray(roomData) ? roomData : []);
       } catch (error) {
         console.error("Failed to fetch meeting rooms:", error);
       }
     };
     fetchRooms();
-  }, [API_BASE_URL]);
+  }, []);
 
   const fetchBookedMeetings = useCallback(async (selectedDate, abortSignal) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/meetings/?date=${selectedDate}`, { signal: abortSignal });
-      if (res.ok) {
-        const meetings = await res.json();
-        const validMeetings = Array.isArray(meetings) ? meetings : [];
-        setFetchedMeetings(validMeetings);
-        if (typeof setBookedMeetings === 'function') {
-          setBookedMeetings(validMeetings);
-        }
+      const { data: meetings } = await api.get('/meetings/', {
+        params: { date: selectedDate },
+        signal: abortSignal,
+      });
+      const validMeetings = Array.isArray(meetings) ? meetings : [];
+      setFetchedMeetings(validMeetings);
+      if (typeof setBookedMeetings === 'function') {
+        setBookedMeetings(validMeetings);
       }
     } catch (error) {
-      if (error.name !== 'AbortError') {
+      if (error.code !== 'ERR_CANCELED') {
         console.error("Failed to fetch booked meetings:", error);
       }
     }
-  }, [API_BASE_URL, setBookedMeetings]);
+  }, [setBookedMeetings]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -144,31 +140,17 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
     console.log("Payload to Backend:", data);
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/meetings/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        const locationText = data.meetingType === "Online" ? `${data.platform} (Online)` : `Room ${data.room}`;
-        showAlert(
-          'success', 
-          'အောင်မြင်ပါသည်!', 
-          `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking တင်ပြီးပါပြီ။`
-        );
-        fetchBookedMeetings(data.date);
-        handleClear();
-      } else {
-        const errorData = await response.json();
-        showAlert(
-          'error', 
-          'Booking မအောင်မြင်ပါ', 
-          errorData.detail || 'အချိန်တူနေပါသည် သို့မဟုတ် အချက်အလက် မှားယွင်းနေပါသည်။'
-        );
-      }
+      await api.post('/meetings/', payload);
+      const locationText = data.meetingType === "Online" ? `${data.platform} (Online)` : `Room ${data.room}`;
+      showAlert(
+        'success', 
+        'အောင်မြင်ပါသည်!', 
+        `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking တင်ပြီးပါပြီ။`
+      );
+      fetchBookedMeetings(data.date);
+      handleClear();
     } catch (error) {
-      showAlert('error', 'Network Error!', 'Server သို့ ချိတ်ဆက်၍ မရပါ။');
+      showAlert('error', 'Booking မအောင်မြင်ပါ', error.response?.data?.detail || 'Server သို့ ချိတ်ဆက်၍ မရပါ။');
     } finally {
       setIsLoading(false);
     }

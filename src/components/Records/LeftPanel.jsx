@@ -16,10 +16,14 @@ export default function LeftPanel({
   handlePause,
   handleResume,
   audioUrl,
+  onDownloadAudio,
   isAudioPlaying,
   playbackTime: audioPlaybackTime = 0,
   audioDuration = 0,
   onPlaybackToggle,
+  onGenerateTranslation,
+  isGeneratingTranslation = false,
+  translationComplete = false,
   englishSummary: propEnglishSummary,
   myanmarSummary: propMyanmarSummary
 }) {
@@ -37,15 +41,11 @@ export default function LeftPanel({
   const [myanmarSummary, setMyanmarSummary] = useState(propMyanmarSummary || "");
   
   useEffect(() => {
-    if (propEnglishSummary) {
-      setEnglishSummary(propEnglishSummary);
-    }
+    setEnglishSummary(propEnglishSummary || "");
   }, [propEnglishSummary]);
 
   useEffect(() => {
-    if (propMyanmarSummary) {
-      setMyanmarSummary(propMyanmarSummary);
-    }
+    setMyanmarSummary(propMyanmarSummary || "");
   }, [propMyanmarSummary]);
 
   const [isPlayingPlayback, setIsPlayingPlayback] = useState(false);
@@ -73,28 +73,14 @@ export default function LeftPanel({
     return () => clearInterval(interval);
   }, [isPlayingPlayback, playbackTime, timer]);
 
-  const isRecording = status === "active";
+  const isRecording = status === "recording";
   const isPaused = status === "paused";
-  const isFinished = status === "processing" || status === "done" || status === "stopped"; 
-
-  // --- Download Function ---
-  const handleDownload = () => {
-    const content = "This is a dummy audio transcript or audio blob placeholder.\nTime recorded: " + formatTime(timer);
-    const blob = new Blob([content], { type: 'text/plain' }); 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Meeting_Record_${new Date().getTime()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const isFinished = status === "ready";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {/* Recording & Audio Player Box */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">
           {isFinished ? "Recorded Audio" : "Recording"}
         </h3>
@@ -167,7 +153,7 @@ export default function LeftPanel({
             }
           </span>
           <button 
-            onClick={handleDownload}
+            onClick={onDownloadAudio}
             className={`shrink-0 ml-2 transition-colors ${isFinished ? 'text-gray-500 hover:text-violet-600' : 'text-gray-300 cursor-not-allowed'}`}
             disabled={!isFinished}
             title={isFinished ? "Download Record" : "Cannot download yet"}
@@ -177,12 +163,18 @@ export default function LeftPanel({
         </div>
       </div>
 
+      {audioUrl && ['ready', 'processing_ai', 'error'].includes(status) && !translationComplete && (
+        <button onClick={onGenerateTranslation} disabled={isGeneratingTranslation || status === 'processing_ai'} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
+          {isGeneratingTranslation || status === 'processing_ai' ? 'Translating…' : 'Generate Translation'}
+        </button>
+      )}
+
       {/* English Summary */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">AI Summary (English)</h3>
-        {(status === "active" || status === "idle" || status === "paused") ? (
+        {(status === "recording" || status === "idle" || status === "paused" || status === 'requesting_mic' || status === 'uploading' || status === 'processing_ai') ? (
           <div className="py-4 text-gray-400 text-sm text-center">Waiting for processing...</div>
-        ) : status === "processing" ? (
+        ) : status === "processing_ai" ? (
           <div className="py-1"><SkeletonText lines={3} /></div>
         ) : (
           <>
@@ -202,7 +194,7 @@ export default function LeftPanel({
             ) : (
               <>
                 <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{englishSummary || "No summary available."}</p>
-                <button onClick={() => setIsEditingEnglish(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
+                {englishSummary.trim() && <button onClick={() => setIsEditingEnglish(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>}
               </>
             )}
           </>
@@ -210,12 +202,10 @@ export default function LeftPanel({
       </div>
 
       {/* Myanmar Summary */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">AI Summary (Myanmar)</h3>
-        {(status === "active" || status === "idle" || status === "paused") ? (
-          <div className="py-4 text-gray-400 text-sm text-center">Waiting for processing...</div>
-        ) : status === "processing" ? (
-          <div className="py-1"><SkeletonText lines={4} /></div>
+        {!myanmarSummary ? (
+          <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">No summary available.</p>
         ) : (
           <>
             {isEditingMyanmar ? (

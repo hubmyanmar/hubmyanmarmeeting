@@ -5,6 +5,7 @@ import {
   CheckSquare, Calendar, BarChart3, Settings, LogOut, 
   MoreHorizontal, X, Radio
 } from 'lucide-react';
+import { clearAuthSession } from '../utils/auth';
 
 const MenuItem = ({ path, icon: Icon, label, currentPath, onClick }) => {
   const navigate = useNavigate();
@@ -61,9 +62,7 @@ export default function Sidebar({ user, profileImage }) {
   const [showMore, setShowMore] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('authUser'); 
-    localStorage.removeItem('savedProfileImage'); 
+    clearAuthSession();
     navigate('/'); 
   };
 
