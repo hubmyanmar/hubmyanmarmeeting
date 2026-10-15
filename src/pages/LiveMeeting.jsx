@@ -134,6 +134,11 @@ export default function LiveMeeting({
   const speechHasErrorRef = useRef(false);
   const speechRestartTimerRef = useRef(null);
   const finalizedSpeechRef = useRef('');
+  const translationInFlightRef = useRef(false);
+  const isMountedRef = useRef(false);
+  const statusPollIntervalRef = useRef(null);
+  const statusPollAbortRef = useRef(null);
+  const cancelStatusPollRef = useRef(null);
 
   const activeUser = currentUser || {};
   const userId = activeUser?.id || activeUser?._id || 'guest_user';
@@ -175,6 +180,7 @@ export default function LiveMeeting({
   const [actionChosen, setActionChosen] = useState(false);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -226,6 +232,18 @@ export default function LiveMeeting({
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (statusPollIntervalRef.current) {
+        window.clearInterval(statusPollIntervalRef.current);
+        statusPollIntervalRef.current = null;
+      }
+      cancelStatusPollRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedMeetingData) {
       setIsRestoringMeeting(false);
       return undefined;
@@ -248,10 +266,12 @@ export default function LiveMeeting({
       handleTranscript(selectedMeetingData.transcript || '');
       setGeneratedContent((current) => ({
         ...current,
-        englishSummary: selectedMeetingData.ai_summary_en || '',
+        englishSummary: selectedMeetingData.summary || selectedMeetingData.ai_summary_en || '',
         myanmarSummary: selectedMeetingData.ai_summary_my || '',
+        keyDecisions: selectedMeetingData.decisions || selectedMeetingData.key_decisions || [],
+        actionItems: selectedMeetingData.action_items || [],
       }));
-      setTranslationComplete(Boolean(selectedMeetingData.ai_summary_en || selectedMeetingData.ai_summary_my));
+      setTranslationComplete(Boolean(selectedMeetingData.summary || selectedMeetingData.ai_summary_en || selectedMeetingData.ai_summary_my));
     }
     if (!/^\d+$/.test(meetingId)) {
       restoredMeetingIdRef.current = meetingId;
@@ -282,14 +302,16 @@ export default function LiveMeeting({
           restoredMeetingIdRef.current = meetingId;
           setUploadedAudioUrl(upload.audio_url);
           setAudioUrl(upload.audio_url);
-          if (upload.transcript) handleTranscript(upload.transcript);
+          const processingContent = applyProcessingResult(upload);
           setGeneratedContent((current) => ({
             ...current,
-            englishSummary: upload.ai_summary_en || current.englishSummary || '',
+            englishSummary: processingContent.summary || current.englishSummary || '',
             myanmarSummary: upload.ai_summary_my || current.myanmarSummary || '',
+            keyDecisions: processingContent.decisions || current.keyDecisions || [],
+            actionItems: processingContent.action_items || current.actionItems || [],
           }));
           setActionChosen(true);
-          setTranslationComplete(Boolean(upload.ai_summary_en || upload.ai_summary_my));
+          setTranslationComplete(Boolean(processingContent.summary || upload.ai_summary_my));
           setStatus('ready');
           const completed = {
             ...(stored || selectedMeetingData),
@@ -297,8 +319,11 @@ export default function LiveMeeting({
             recording_completed: true,
             audio_url: upload.audio_url,
             transcript: upload.transcript || stored?.transcript || '',
-            ai_summary_en: upload.ai_summary_en || stored?.ai_summary_en || '',
+            summary: processingContent.summary || stored?.summary || '',
+            ai_summary_en: processingContent.summary || stored?.ai_summary_en || '',
             ai_summary_my: upload.ai_summary_my || stored?.ai_summary_my || '',
+            decisions: processingContent.decisions || stored?.decisions || [],
+            action_items: processingContent.action_items || stored?.action_items || [],
           };
           localStorage.setItem('active_live_meeting', JSON.stringify(completed));
           setSelectedMeetingData(completed);
@@ -457,6 +482,30 @@ export default function LiveMeeting({
     setAudioUrl(previewUrl);
   };
 
+  const applyProcessingResult = (response) => {
+    const content = response?.data?.data?.data || response?.data?.data || response?.data?.result || response?.data || response || {};
+    const transcript = content.transcript;
+    const summary = content.summary || content.summary_en || content.ai_summary_en;
+    const decisions = content.decisions || content.key_decisions;
+    const actionItems = content.action_items;
+
+    if (transcript) handleTranscript(transcript);
+    setGeneratedContent((current) => ({
+      ...current,
+      englishSummary: summary || current.englishSummary,
+      myanmarSummary: content.summary_my || current.myanmarSummary,
+      keyDecisions: Array.isArray(decisions) ? decisions : current.keyDecisions,
+      actionItems: Array.isArray(actionItems) ? actionItems : current.actionItems,
+    }));
+    return {
+      ...content,
+      ...(transcript ? { transcript } : {}),
+      ...(summary ? { summary } : {}),
+      ...(Array.isArray(decisions) ? { decisions } : {}),
+      ...(Array.isArray(actionItems) ? { action_items: actionItems } : {}),
+    };
+  };
+
   const loadMeetingUpload = async (meetingId) => {
     if (!meetingId) {
       console.warn('Cannot load meeting upload without a meeting ID.');
@@ -471,16 +520,7 @@ export default function LiveMeeting({
         setUploadedAudioUrl(upload.audio_url);
         setAudioUrl(upload.audio_url);
       }
-      const transcript = upload.transcript;
-      if (transcript) handleTranscript(transcript);
-      if (upload.ai_summary_en || upload.ai_summary_my) {
-        setGeneratedContent((current) => ({
-          ...current,
-          englishSummary: upload.ai_summary_en || current.englishSummary || '',
-          myanmarSummary: upload.ai_summary_my || current.myanmarSummary || '',
-        }));
-      }
-      return upload;
+      return applyProcessingResult(upload);
     } catch (error) {
       console.error('Unable to load meeting upload:', error.response?.data?.detail || error);
     }
@@ -506,18 +546,84 @@ export default function LiveMeeting({
   const meeting = { 
     ...rawMeeting, 
     startTime: formattedStartTime,
-    ...generatedContent
+    ...generatedContent,
+    summary: generatedContent.englishSummary || rawMeeting.summary || rawMeeting.ai_summary_en || '',
   };
   const isViewMode = location.state?.mode === 'view' || selectedMeetingData?.mode === 'view';
   const showModal = !isRestoringMeeting && !isViewMode && status === 'idle' && !actionChosen && !hasSavedRecording(selectedMeetingData);
 
+  const waitForProcessingStatus = (meetingId) => new Promise((resolve, reject) => {
+    if (statusPollIntervalRef.current || cancelStatusPollRef.current) {
+      reject(new Error('A meeting status poll is already active.'));
+      return;
+    }
+    if (!isMountedRef.current) {
+      const error = new Error('Status polling was cancelled.');
+      error.name = 'AbortError';
+      reject(error);
+      return;
+    }
+    const controller = new AbortController();
+    let intervalId;
+    let requestInFlight = false;
+    let settled = false;
+
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      if (intervalId) window.clearInterval(intervalId);
+      if (statusPollIntervalRef.current === intervalId) statusPollIntervalRef.current = null;
+      if (statusPollAbortRef.current === controller) statusPollAbortRef.current = null;
+      if (cancelStatusPollRef.current === cancel) cancelStatusPollRef.current = null;
+      if (error) reject(error);
+      else resolve(value);
+    };
+
+    const cancel = () => {
+      controller.abort();
+      const error = new Error('Status polling was cancelled.');
+      error.name = 'AbortError';
+      finish(error);
+    };
+
+    statusPollAbortRef.current = controller;
+    cancelStatusPollRef.current = cancel;
+    intervalId = window.setInterval(async () => {
+      if (requestInFlight || !isMountedRef.current) return;
+      requestInFlight = true;
+      try {
+        const { data: response } = await api.get(`/meeting-records/${meetingId}/status`, {
+          signal: controller.signal,
+        });
+        const taskStatus = response?.data?.data || response?.data?.result || response?.data || response;
+        const returnedStatus = taskStatus?.status;
+
+        if (returnedStatus === 'completed') {
+          finish(null, taskStatus);
+        } else if (returnedStatus === 'failed') {
+          finish(new Error('Translation failed. Please try again.'));
+        } else if (returnedStatus !== 'processing') {
+          finish(new Error('The server returned an unknown audio processing status.'));
+        }
+      } catch (error) {
+        finish(error);
+      } finally {
+        requestInFlight = false;
+      }
+    }, 5000);
+    statusPollIntervalRef.current = intervalId;
+  });
+
   const handleGenerateTranslation = async () => {
+    if (translationInFlightRef.current) return;
+    translationInFlightRef.current = true;
     setIsGeneratingTranslation(true);
     if (!uploadedAudioUrl) {
       const message = 'Upload the recording before generating its summary.';
       setStatus('error');
       setErrorMessage(message);
       window.alert(message);
+      translationInFlightRef.current = false;
       setIsGeneratingTranslation(false);
       return;
     }
@@ -531,17 +637,27 @@ export default function LiveMeeting({
       const headers = { 'Content-Type': 'application/json' };
       console.log('[translate] request payload:', payload);
       console.log('[translate] request headers:', headers);
-      const { data: result } = await api.post('/translate', payload, {
-        headers,
-      });
-      const content = result;
+      const meetingId = getMeetingId(rawMeeting);
+      const { data: acceptedResult } = await api.post('/translate', payload, { headers });
+      if (!isMountedRef.current) return;
+      const accepted = acceptedResult?.data?.data || acceptedResult?.data?.result || acceptedResult?.data || acceptedResult;
+      if (!accepted?.task_id) throw new Error('The processing task was not created. Please retry.');
+
+      await waitForProcessingStatus(meetingId);
+
+      const { data: recordResult } = await api.get(`/meeting-records/${meetingId}`);
+      if (!isMountedRef.current) return;
+      const content = recordResult?.data?.data || recordResult?.data?.result || recordResult?.data || recordResult;
       const transcript = content.transcript || '';
+      const summary = content.summary || '';
+      const decisions = content.decisions || [];
+      const actionItems = content.action_items || [];
       handleTranscript(transcript);
       setGeneratedContent({
-        englishSummary: content.summary_en || '',
-        myanmarSummary: content.summary_my || '',
-        keyDecisions: Array.isArray(content.key_decisions) ? content.key_decisions : [],
-        actionItems: Array.isArray(content.action_items) ? content.action_items : [],
+        englishSummary: summary,
+        myanmarSummary: summary,
+        keyDecisions: Array.isArray(decisions) ? decisions : [],
+        actionItems: Array.isArray(actionItems) ? actionItems : [],
       });
       const savedMeeting = (() => {
         try { return JSON.parse(localStorage.getItem('active_live_meeting') || 'null'); }
@@ -554,10 +670,10 @@ export default function LiveMeeting({
         recording_uploaded: true,
         audio_url: uploadedAudioUrl,
         transcript,
-        ai_summary_en: content.summary_en || '',
-        ai_summary_my: content.summary_my || '',
-        key_decisions: content.key_decisions || [],
-        action_items: content.action_items || [],
+        summary,
+        decisions,
+        key_decisions: decisions,
+        action_items: actionItems,
       };
       localStorage.setItem('active_live_meeting', JSON.stringify(completedMeeting));
       setSelectedMeetingData(completedMeeting);
@@ -565,13 +681,15 @@ export default function LiveMeeting({
       setStatus('ready');
     } catch (error) {
       console.error('Unable to generate or fetch AI meeting content:', error);
+      if (!isMountedRef.current) return;
       errorSourceRef.current = 'ai';
       const message = error.response?.data?.detail || error.response?.data?.message || error.message || 'AI processing failed. Please retry.';
       setStatus('error');
       setErrorMessage(message);
       window.alert(message);
     } finally {
-      setIsGeneratingTranslation(false);
+      translationInFlightRef.current = false;
+      if (isMountedRef.current) setIsGeneratingTranslation(false);
     }
   };
 
@@ -915,6 +1033,8 @@ export default function LiveMeeting({
 
   const onStopRecording = async () => {
     let uploadError = null;
+    let completedUpload = null;
+    setIsProcessing(true);
     try {
       setIsRecording(false);
       handleStop();
@@ -935,7 +1055,7 @@ export default function LiveMeeting({
         mediaRecorderRef.current.stop();
         setStatus('uploading');
         await recorderStopped;
-        try { await uploadCompletionRef.current; }
+        try { completedUpload = await uploadCompletionRef.current; }
         catch (error) { uploadError = error; }
       }
 
@@ -954,7 +1074,8 @@ export default function LiveMeeting({
         keyDecisions: [],
         actionItems: [],
       });
-      const upload = await loadMeetingUpload(currentMeetingId);
+      const loadedUpload = await loadMeetingUpload(currentMeetingId);
+      const upload = applyProcessingResult({ ...(completedUpload || {}), ...(loadedUpload || {}) });
 
       setStatus(uploadError ? 'error' : 'ready');
       setErrorMessage(uploadError ? uploadError.response?.data?.message || uploadError.message || 'Audio upload failed.' : '');
@@ -970,8 +1091,11 @@ export default function LiveMeeting({
         recording_uploaded: Boolean(upload?.audio_url || uploadedAudioUrl),
         audio_url: upload?.audio_url || uploadedAudioUrl || '',
         transcript: upload?.transcript || liveTranscript || '',
-        ai_summary_en: upload?.ai_summary_en || '',
+        summary: upload?.summary || '',
+        ai_summary_en: upload?.summary || upload?.ai_summary_en || '',
         ai_summary_my: upload?.ai_summary_my || '',
+        decisions: upload?.decisions || [],
+        action_items: upload?.action_items || [],
         duration_seconds: elapsedSeconds,
       };
       localStorage.setItem('active_live_meeting', JSON.stringify(completedMeeting));
@@ -983,6 +1107,8 @@ export default function LiveMeeting({
       errorSourceRef.current = 'recording_upload';
       setStatus('error');
       setErrorMessage(err.response?.data?.message || err.message || 'Audio was uploaded, but the meeting record could not be saved.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1098,8 +1224,7 @@ export default function LiveMeeting({
           onPlaybackToggle={onPlaybackToggle}
           onGenerateTranslation={handleGenerateTranslation}
           isGeneratingTranslation={isGeneratingTranslation}
-          englishSummary={meeting.englishSummary}
-          myanmarSummary={meeting.myanmarSummary}
+          summary={meeting.summary}
           translationComplete={translationComplete}
         />
         <RightPanel 
@@ -1107,6 +1232,7 @@ export default function LiveMeeting({
           actionType={actionType}
           liveTranscript={liveTranscript}
           speechActivity={speechActivity}
+          isProcessing={isProcessing}
           keyDecisions={meeting.keyDecisions}
           actionItems={meeting.actionItems}
         />

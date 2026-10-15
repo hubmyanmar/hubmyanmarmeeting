@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Search, Calendar, MapPin, User, MoreVertical, X, 
+  Search, Calendar, MapPin, User, MoreVertical, X, Filter, ChevronLeft, ChevronRight,
   CheckCircle2, Clock, AlertCircle, FileText, Mic, 
   Video, LayoutGrid, ListTodo, Info
 } from 'lucide-react';
@@ -104,6 +104,7 @@ export default function MeetingRecords() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -140,6 +141,12 @@ export default function MeetingRecords() {
       ? recordDate.getFullYear() === now.getFullYear()
       : rangeDays && recordDate >= new Date(now.getTime() - rangeDays * 86400000) && recordDate <= now));
     return matchesSearch && matchesRoom && matchesOrganizer && matchesDate;
+  }).sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    if (Number.isNaN(dateA)) return Number.isNaN(dateB) ? 0 : 1;
+    if (Number.isNaN(dateB)) return -1;
+    return dateB - dateA;
   });
   const itemsPerPage = 10;
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -159,10 +166,57 @@ export default function MeetingRecords() {
   ];
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-[85vh] w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden text-slate-800">
+    <div className="flex flex-col lg:flex-row h-full min-h-[85vh] w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden text-slate-800 py-4 px-2 sm:px-4 max-md:w-auto max-md:-mx-8 max-md:-mt-8 max-md:px-3 max-md:pt-4 max-md:pb-24 max-md:overflow-visible">
       
       {/* ---------------- LEFT SECTION (Table List) ---------------- */}
-      <div className={`flex-1 flex flex-col min-w-0 ${selectedRecord ? 'hidden lg:flex lg:border-r border-slate-200' : 'flex'}`}>
+      <div className="lg:hidden flex min-h-0 flex-1 flex-col min-w-0 bg-slate-50">
+        {!selectedRecord ? (
+          <>
+            <div className="px-5 pt-6 pb-4 bg-white border-b border-slate-100">
+              <h1 className="text-2xl font-bold text-slate-900">Meeting Records</h1>
+              <p className="text-sm text-slate-500 mt-1">Searchable archive of all meeting records and transcripts.</p>
+              <div className="flex gap-2 mt-5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <input type="text" placeholder="Search title, room, or organizer" value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search title, room, or organizer" className="w-full pl-10 pr-3 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                </div>
+                <button type="button" onClick={() => setMobileFiltersOpen((open) => !open)} aria-label="Toggle filters" aria-expanded={mobileFiltersOpen} className="w-12 shrink-0 grid place-items-center rounded-xl border border-slate-200 bg-white text-slate-600"><Filter size={18} /></button>
+              </div>
+              {mobileFiltersOpen && <div className="grid grid-cols-1 gap-2 mt-3">
+                <select aria-label="Date Range" value={dateRange} onChange={(event) => setDateRange(event.target.value)} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white">{['All', 'Last 7 days', 'Last 30 days', 'Last 90 days', 'This year'].map((option) => <option key={option}>{option}</option>)}</select>
+                <select aria-label="Room" value={roomFilter} onChange={(event) => setRoomFilter(event.target.value)} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white"><option value="All">All rooms</option>{roomOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select>
+                <select aria-label="Organizer" value={organizerFilter} onChange={(event) => setOrganizerFilter(event.target.value)} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white"><option value="All">All organizers</option>{organizerOptions.map((option) => <option key={option} value={option}>{option}</option>)}</select>
+              </div>}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-0 pt-4 pb-24 space-y-3">
+              {isLoading ? <p className="py-10 text-center text-sm text-slate-500">Loading meeting records…</p> : error ? <p role="alert" className="py-10 text-center text-sm text-rose-600">{error}</p> : paginatedRecords.length ? paginatedRecords.map((record) => (
+                <button type="button" key={record.id} onClick={() => setSelectedRecord(record)} className="w-full min-w-0 text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm active:scale-[0.99] transition-transform">
+                  <div className="flex min-w-0 justify-between gap-3"><h2 className="min-w-0 break-words font-bold text-slate-900">{record.title}</h2><MoreVertical size={18} className="shrink-0 text-slate-400" /></div>
+                  {record.subtitle && <p className="mt-1 min-w-0 text-xs text-slate-500 line-clamp-1 break-all">{record.subtitle}</p>}
+                  <div className="mt-4 grid grid-cols-1 gap-2.5 text-sm text-slate-600">
+                    <div className="flex items-center gap-2"><Calendar size={15} className="text-slate-400" />{formatDate(record.date)}{record.time !== '—' && <span className="text-slate-400">· {record.time}</span>}</div>
+                    <div className="flex items-center gap-2"><FileText size={15} className="text-slate-400" />{record.room}</div>
+                    <div className="flex items-center gap-2"><User size={15} className="text-slate-400" />{record.organizer}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {[['Recording', record.recording], ['Transcript', record.transcriptStatus], ['Summary', record.summaryStatus]].map(([label, status]) => <span key={label} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${status === 'ready' ? 'bg-emerald-50 text-emerald-700' : status === 'processing' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}><span>{label}</span><span>· {status === 'ready' ? 'Ready' : status === 'processing' ? 'Processing' : status === 'review' ? 'Review' : 'Unavailable'}</span></span>)}
+                  </div>
+                </button>
+              )) : <p className="py-10 text-center text-sm text-slate-500">No meeting records found.</p>}
+            </div>
+            <div className="shrink-0 px-4 py-4 bg-white border-t border-slate-200 flex flex-col gap-3 text-xs text-slate-500">
+              <p>Showing {filteredRecords.length ? (currentPage - 1) * itemsPerPage + 1 : 0}–{Math.min(currentPage * itemsPerPage, filteredRecords.length)} of {filteredRecords.length} records</p>
+              <nav aria-label="Meeting records pagination" className="flex min-w-0 items-center justify-between gap-1">
+                <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-200 disabled:opacity-40"><ChevronLeft size={15} /> Prev</button>
+                <div className="flex min-w-0 max-w-[45vw] gap-1 overflow-x-auto">{Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => <button key={page} type="button" onClick={() => setCurrentPage(page)} aria-current={currentPage === page ? 'page' : undefined} className={`min-w-9 shrink-0 px-2.5 py-2 rounded-lg border ${currentPage === page ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200'}`}>{page}</button>)}</div>
+                <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-200 disabled:opacity-40">Next <ChevronRight size={15} /></button>
+              </nav>
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      <div className={`hidden lg:flex flex-1 flex-col min-w-0 ${selectedRecord ? 'lg:border-r border-slate-200' : ''}`}>
         
         {/* Header & Filters */}
         <div className="px-8 py-6 border-b border-slate-100 bg-white z-20">
@@ -315,10 +369,30 @@ export default function MeetingRecords() {
 
       {/* ---------------- RIGHT SECTION (Side Panel) ---------------- */}
       {selectedRecord && (
-        <div className="w-full lg:w-[480px] xl:w-[500px] bg-[#fafafa] flex flex-col h-full shrink-0 border-l border-slate-200 relative shadow-[-4px_0_24px_rgba(0,0,0,0.02)]">
+        <div className="fixed inset-0 z-30 h-dvh w-screen max-w-full overflow-x-hidden bg-slate-50 flex flex-col shrink-0 lg:static lg:z-auto lg:h-full lg:w-[480px] lg:max-w-none lg:overflow-visible xl:w-[500px] lg:bg-[#fafafa] lg:border-l border-slate-200 relative shadow-[-4px_0_24px_rgba(0,0,0,0.02)]">
+          <div className="lg:hidden bg-white border-b border-slate-200">
+            <div className="px-4 pt-3 pb-4">
+              <div className="flex items-center justify-between mb-4">
+                <button type="button" onClick={() => setSelectedRecord(null)} className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600"><ChevronLeft size={18} /> Back</button>
+                <button type="button" onClick={() => setSelectedRecord(null)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-sm text-slate-600">Close <X size={15} /></button>
+              </div>
+              <h1 className="min-w-0 break-words text-xl font-bold text-slate-900">{selectedRecord.title}</h1>
+              <p className="mt-1 break-words text-sm text-slate-500">{formatDate(selectedRecord.date)}{selectedRecord.time !== '—' && ` · ${selectedRecord.time}`}</p>
+              <div className="mt-2 flex min-w-0 items-center justify-between gap-3">
+                <p className="min-w-0 break-words text-sm text-slate-600">{selectedRecord.organizer}</p>
+                <div className="shrink-0"><StatusBadge type="ready" /></div>
+              </div>
+            </div>
+            <div className="flex overflow-x-auto hide-scrollbar px-4 gap-6">
+              {tabs.filter((tab) => ['Overview', 'Notes', 'Recording', 'Transcript'].includes(tab.id)).map((tab) => {
+                const isActive = activeTab === tab.id;
+                return <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`pb-3 text-sm font-semibold whitespace-nowrap border-b-2 ${isActive ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500'}`}>{tab.id}</button>;
+              })}
+            </div>
+          </div>
           
           {/* Panel Header */}
-          <div className="px-8 pt-8 pb-0 bg-white border-b border-slate-200">
+          <div className="hidden lg:block px-8 pt-8 pb-0 bg-white border-b border-slate-200">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-white rounded-2xl text-indigo-600 border border-slate-200 shadow-sm">
@@ -365,58 +439,47 @@ export default function MeetingRecords() {
           </div>
 
           {/* Panel Content (Scrollable) */}
-          <div className="p-8 overflow-y-auto flex-1 space-y-8">
+          <div className="p-4 lg:p-8 overflow-y-auto flex-1 space-y-4 lg:space-y-8">
             
             {activeTab === 'Overview' && (
               <>
                 {/* Meeting Details List */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="min-w-0 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <h3 className="text-[15px] font-bold text-slate-900 mb-5">Meeting Details</h3>
                   <div className="space-y-4 text-[14px]">
-                    <div className="grid grid-cols-[120px_1fr] gap-4">
+                    <div className="grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)] gap-2 lg:grid-cols-[120px_1fr] lg:gap-4">
                       <span className="text-slate-500">Title</span>
-                      <span className="font-semibold text-slate-800">{selectedRecord.title}</span>
+                      <span className="max-md:min-w-0 max-md:break-words font-semibold text-slate-800">{selectedRecord.title}</span>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr] gap-4">
+                    <div className="grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)] gap-2 lg:grid-cols-[120px_1fr] lg:gap-4">
                       <span className="text-slate-500">Room</span>
-                      <span className="font-semibold text-slate-800">{selectedRecord.room}</span>
+                      <span className="max-md:min-w-0 max-md:break-words font-semibold text-slate-800">{selectedRecord.room}</span>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr] gap-4">
+                    <div className="grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)] gap-2 lg:grid-cols-[120px_1fr] lg:gap-4">
                       <span className="text-slate-500">Date & Time</span>
-                      <span className="font-semibold text-slate-800">
-                        {selectedRecord.date} <span className="text-slate-300 mx-1.5">•</span> {selectedRecord.time}
+                      <span className="max-md:min-w-0 max-md:break-words font-semibold text-slate-800">
+                        {formatDate(selectedRecord.date)} <span className="text-slate-300 mx-1.5">•</span> {selectedRecord.time}
                       </span>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr] gap-4">
+                    <div className="grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)] gap-2 lg:grid-cols-[120px_1fr] lg:gap-4">
                       <span className="text-slate-500">Organizer</span>
-                      <span className="font-semibold text-slate-800">{selectedRecord.organizer}</span>
+                      <span className="max-md:min-w-0 max-md:break-words font-semibold text-slate-800">{selectedRecord.organizer}</span>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr] gap-4">
+                    <div className="grid grid-cols-[minmax(5rem,6rem)_minmax(0,1fr)] gap-2 lg:grid-cols-[120px_1fr] lg:gap-4">
                       <span className="text-slate-500">Participants</span>
-                      <span className="font-semibold text-slate-800">{selectedRecord.participants} attendees</span>
+                      <span className="max-md:min-w-0 max-md:break-words font-semibold text-slate-800">{selectedRecord.participants} attendees</span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Admin Approval Info Box */}
-                <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-2xl p-5 flex items-start gap-3.5 shadow-sm">
-                  <Info className="text-indigo-600 shrink-0 mt-0.5" size={20} />
-                  <div>
-                    <h4 className="text-[14px] font-bold text-indigo-900">Admin Approval Required</h4>
-                    <p className="text-[13px] text-indigo-800/80 mt-1.5 leading-relaxed">
-                      All booking requests require Admin approval before a confirmed calendar block.
-                    </p>
                   </div>
                 </div>
 
                 {/* Summary Section */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="min-w-0 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[15px] font-bold text-slate-900">Summary</h3>
                     <StatusBadge type={selectedRecord.summaryStatus} />
                   </div>
                   <p className="text-[14px] text-slate-600 leading-relaxed">
-                    {selectedRecord.summary || 'No summary is available for this meeting.'}
+                    <span className="max-md:break-words">{selectedRecord.summary || 'No summary is available for this meeting.'}</span>
                   </p>
                 </div>
               </>

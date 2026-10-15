@@ -24,8 +24,7 @@ export default function LeftPanel({
   onGenerateTranslation,
   isGeneratingTranslation = false,
   translationComplete = false,
-  englishSummary: propEnglishSummary,
-  myanmarSummary: propMyanmarSummary
+  summary: propSummary
 }) {
   const formatPlaybackTime = (seconds) => {
     const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
@@ -34,19 +33,12 @@ export default function LeftPanel({
     return `${minutes}:${remainingSeconds}`;
   };
 
-  const [isEditingEnglish, setIsEditingEnglish] = useState(false);
-  const [englishSummary, setEnglishSummary] = useState(propEnglishSummary || "");
-
-  const [isEditingMyanmar, setIsEditingMyanmar] = useState(false);
-  const [myanmarSummary, setMyanmarSummary] = useState(propMyanmarSummary || "");
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [summary, setSummary] = useState(propSummary || "");
   
   useEffect(() => {
-    setEnglishSummary(propEnglishSummary || "");
-  }, [propEnglishSummary]);
-
-  useEffect(() => {
-    setMyanmarSummary(propMyanmarSummary || "");
-  }, [propMyanmarSummary]);
+    setSummary(propSummary || "");
+  }, [propSummary]);
 
   const [isPlayingPlayback, setIsPlayingPlayback] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
@@ -169,67 +161,38 @@ export default function LeftPanel({
         </button>
       )}
 
-      {/* English Summary */}
+      {/* Summary */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">AI Summary (English)</h3>
+        <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">Summary</h3>
         {(status === "recording" || status === "idle" || status === "paused" || status === 'requesting_mic' || status === 'uploading' || status === 'processing_ai') ? (
           <div className="py-4 text-gray-400 text-sm text-center">Waiting for processing...</div>
         ) : status === "processing_ai" ? (
           <div className="py-1"><SkeletonText lines={3} /></div>
         ) : (
           <>
-            {isEditingEnglish ? (
+            {isEditingSummary ? (
               <div>
                 <textarea
-                  value={englishSummary}
-                  onChange={(e) => setEnglishSummary(e.target.value)}
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
                   className="w-full p-3 text-[#475467] text-[14px] leading-[1.6] border border-violet-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-y"
                   rows={4}
                 />
                 <div className="flex justify-end gap-2 mt-3">
-                  <button onClick={() => setIsEditingEnglish(false)} className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-                  <button onClick={() => setIsEditingEnglish(false)} className="px-3 py-1.5 text-xs font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">Save</button>
+                  <button onClick={() => { setSummary(propSummary || ""); setIsEditingSummary(false); }} className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+                  <button onClick={() => setIsEditingSummary(false)} className="px-3 py-1.5 text-xs font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">Save</button>
                 </div>
               </div>
             ) : (
               <>
-                <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{englishSummary || "No summary available."}</p>
-                {englishSummary.trim() && <button onClick={() => setIsEditingEnglish(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>}
+                <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{summary || "No summary available."}</p>
+                <button onClick={() => setIsEditingSummary(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
               </>
             )}
           </>
         )}
       </div>
 
-      {/* Myanmar Summary */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">AI Summary (Myanmar)</h3>
-        {!myanmarSummary ? (
-          <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">No summary available.</p>
-        ) : (
-          <>
-            {isEditingMyanmar ? (
-              <div>
-                <textarea
-                  value={myanmarSummary}
-                  onChange={(e) => setMyanmarSummary(e.target.value)}
-                  className="w-full p-3 text-[#475467] text-[14px] leading-[1.8] font-myanmar border border-violet-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-y"
-                  rows={4}
-                />
-                <div className="flex justify-end gap-2 mt-3">
-                  <button onClick={() => setIsEditingMyanmar(false)} className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-                  <button onClick={() => setIsEditingMyanmar(false)} className="px-3 py-1.5 text-xs font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">Save</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-[#475467] text-[14px] leading-[1.8] font-myanmar mb-5">{myanmarSummary || "အကျဉ်းချုပ် မရှိသေးပါ။"}</p>
-                <button onClick={() => setIsEditingMyanmar(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
-              </>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }
