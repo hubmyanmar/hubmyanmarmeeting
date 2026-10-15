@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import api from '../api';
 
 export default function Header({ user, profileImage, setProfileImage }) {
   const displayName = user?.name || user?.fullName || "User";
@@ -28,20 +27,7 @@ export default function Header({ user, profileImage, setProfileImage }) {
 
       try {
         setUploading(true);
-        const token = localStorage.getItem('access_token');
-        
-        const response = await fetch(`${API_BASE_URL}/auth/update-image`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ image: base64String })
-        });
-
-        if (!response.ok) {
-          console.error('Failed to update image on server');
-        }
+        await api.patch('/auth/update-image', { image: base64String });
       } catch (err) {
         console.error('Error uploading image:', err);
       } finally {

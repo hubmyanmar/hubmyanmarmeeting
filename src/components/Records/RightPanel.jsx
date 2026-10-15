@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Square, Mic, Activity, CheckCircle2 } from 'lucide-react';
+import { Square, Mic, Activity, CheckCircle2, LoaderCircle } from 'lucide-react';
 
 const SkeletonText = ({ lines = 3 }) => (
   <div className="animate-pulse flex flex-col gap-3">
@@ -14,6 +14,7 @@ export default function RightPanel({
   actionType, 
   liveTranscript,
   speechActivity,
+  isProcessing = false,
   keyDecisions: propKeyDecisions,
   actionItems: propActionItems
 }) {
@@ -33,16 +34,15 @@ export default function RightPanel({
   }, [propActionItems]);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full overflow-hidden min-h-[500px]">
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex min-w-0 flex-col h-full overflow-hidden min-h-[500px]">
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-gray-100 px-6 pt-1">
-        <button className={`py-4 text-sm font-semibold border-b-2 ${actionType !== 'live_transcription' || status !== 'active' ? 'text-violet-600 border-violet-600' : 'text-gray-500 border-transparent'}`}>Summary</button>
-        <button className={`py-4 text-sm font-semibold border-b-2 ${actionType === 'live_transcription' && status === 'active' ? 'text-violet-600 border-violet-600' : 'text-gray-500 border-transparent hover:text-gray-900'}`}>Transcript</button>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-0 border-b border-gray-100 px-4 sm:px-6 pt-1">
+        <button className={`py-4 text-sm font-semibold border-b-2 ${actionType === 'live_transcription' && status === 'recording' ? 'text-violet-600 border-violet-600' : 'text-gray-500 border-transparent hover:text-gray-900'}`}>Transcript</button>
         <button className="py-4 text-sm font-medium text-gray-500 hover:text-gray-900">Notes</button>
         <button className="py-4 text-sm font-medium text-gray-500 hover:text-gray-900">Files (2)</button>
       </div>
 
-      <div className="p-6 flex flex-col gap-8 flex-1">
+      <div className="p-4 sm:p-6 flex min-w-0 flex-col gap-6 flex-1">
         {status === "idle" && (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2 mt-10">
             <Square className="opacity-30" size={32} />
@@ -50,14 +50,14 @@ export default function RightPanel({
           </div>
         )}
         
-        {status === "active" && actionType === "quick_voice_note" && (
+        {status === "recording" && actionType === "quick_voice_note" && (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2 mt-10">
             <Mic className="opacity-30 animate-pulse text-red-500" size={32} />
             <p>Recording audio...</p>
           </div>
         )}
 
-        {status === "active" && actionType === "live_transcription" && (
+        {status === "recording" && actionType === "live_transcription" && (
           <div className="h-full flex flex-col animate-in fade-in">
             <div className="flex items-center gap-2 mb-4">
               <Activity size={18} className="text-emerald-500 animate-pulse" />
@@ -73,18 +73,30 @@ export default function RightPanel({
           </div>
         )}
         
-        {status === "processing" && (
+        {(status === "uploading" || status === "processing_ai") && (
           <div className="space-y-8">
-            <div><h4 className="text-sm font-semibold mb-3">Key Decisions</h4><SkeletonText lines={4} /></div>
+            {(isProcessing || status === 'processing_ai') && (
+              <div className="flex items-center gap-3 text-sm font-medium text-violet-700" role="status">
+                <LoaderCircle size={18} className="animate-spin" />
+                AI is processing the meeting...
+              </div>
+            )}
+            <div><h4 className="text-sm font-semibold mb-3">Decisions</h4><SkeletonText lines={4} /></div>
             <div><h4 className="text-sm font-semibold mb-3">Action Items</h4><SkeletonText lines={5} /></div>
           </div>
         )}
 
-        {status === "done" && (
+        {(status === "ready" || status === "error") && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            {liveTranscript && (
+              <section>
+                <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">Transcript</h3>
+                <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">{liveTranscript}</div>
+              </section>
+            )}
             {/* Key Decisions */}
             <div>
-              <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">Key Decisions</h3>
+              <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">Decisions</h3>
               <ul className="space-y-3.5">
                 {keyDecisions.length > 0 ? (
                   keyDecisions.map((decision, index) => (
@@ -94,7 +106,7 @@ export default function RightPanel({
                     </li>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-400">No key decisions recorded.</p>
+                  <p className="text-sm text-gray-400">No decisions recorded.</p>
                 )}
               </ul>
             </div>
@@ -102,14 +114,13 @@ export default function RightPanel({
             {/* Action Items */}
             <div>
               <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">Action Items</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[13px]">
+              <div className="w-full min-w-0 overflow-x-auto">
+                <table className="w-full min-w-[480px] whitespace-nowrap text-left text-[13px]">
                   <thead>
                     <tr className="border-b border-gray-100 text-gray-500">
                       <th className="pb-3 font-medium w-[45%]">Task</th>
-                      <th className="pb-3 font-medium">Owner</th>
-                      <th className="pb-3 font-medium">Due Date</th>
-                      <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Assignee</th>
+                      <th className="pb-3 font-medium">Deadline</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -117,18 +128,13 @@ export default function RightPanel({
                       actionItems.map((item, index) => (
                         <tr key={index}>
                           <td className="py-4 text-[#475467] font-medium pr-2">{item.task}</td>
-                          <td className="py-4 text-[#475467]">{item.owner}</td>
-                          <td className="py-4 text-[#475467]">{item.dueDate}</td>
-                          <td className="py-4">
-                            <span className="px-2.5 py-1 rounded-[6px] text-xs font-medium bg-[#FFF4ED] text-[#B93815]">
-                              {item.status}
-                            </span>
-                          </td>
+                          <td className="py-4 text-[#475467]">{item.assignee || item.owner || '-'}</td>
+                          <td className="py-4 text-[#475467]">{item.deadline || item.dueDate || '-'}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="4" className="py-4 text-center text-sm text-gray-400">
+                        <td colSpan="3" className="py-4 text-center text-sm text-gray-400">
                           No action items recorded.
                         </td>
                       </tr>

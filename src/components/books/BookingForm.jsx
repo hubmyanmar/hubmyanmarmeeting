@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import api from '../../api';
 
 const getTodayDate = () => {
   const today = new Date();
@@ -83,53 +84,45 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  
   const fetchRooms = useCallback(async (abortSignal) => {
     setIsRoomsLoading(true);
     setRoomError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/meeting-rooms/`, { signal: abortSignal });
-      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
-      const roomData = await res.json();
+      const { data: roomData } = await api.get('/meeting-rooms/', { signal: abortSignal });
       setRooms(Array.isArray(roomData) ? roomData : []);
     } catch (error) {
-      if (error.name === 'AbortError') return;
+      if (error.code === 'ERR_CANCELED') return;
       setRoomError("Meeting Room များကို ယူ၍မရပါ။ Server ချိတ်ဆက်မှုကို စစ်ဆေးပါ။");
     } finally {
       setIsRoomsLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, []);
 
   const fetchCompanies = useCallback(async (abortSignal) => {
     setIsCompaniesLoading(true);
     setCompanyError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/companies/`, { signal: abortSignal });
-      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
-      const companyData = await res.json();
+      const { data: companyData } = await api.get('/companies/', { signal: abortSignal });
       setCompanies(Array.isArray(companyData) ? companyData : []);
     } catch (error) {
-      if (error.name === 'AbortError') return;
+      if (error.code === 'ERR_CANCELED') return;
       setCompanyError("Company စာရင်းကို ယူ၍မရပါ။");
     } finally {
       setIsCompaniesLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, []);
 
   const fetchUsers = useCallback(async (abortSignal) => {
     setIsUsersLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/users`, { signal: abortSignal });
-      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
-      const userData = await res.json();
+      const { data: userData } = await api.get('/auth/users', { signal: abortSignal });
       setAvailableUsers(Array.isArray(userData) ? userData : []);
     } catch (error) {
-      if (error.name === 'AbortError') return;
+      if (error.code === 'ERR_CANCELED') return;
     } finally {
       setIsUsersLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();

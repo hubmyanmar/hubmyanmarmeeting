@@ -16,12 +16,15 @@ export default function LeftPanel({
   handlePause,
   handleResume,
   audioUrl,
+  onDownloadAudio,
   isAudioPlaying,
   playbackTime: audioPlaybackTime = 0,
   audioDuration = 0,
   onPlaybackToggle,
-  englishSummary: propEnglishSummary,
-  myanmarSummary: propMyanmarSummary
+  onGenerateTranslation,
+  isGeneratingTranslation = false,
+  translationComplete = false,
+  summary: propSummary
 }) {
   const formatPlaybackTime = (seconds) => {
     const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
@@ -30,23 +33,12 @@ export default function LeftPanel({
     return `${minutes}:${remainingSeconds}`;
   };
 
-  const [isEditingEnglish, setIsEditingEnglish] = useState(false);
-  const [englishSummary, setEnglishSummary] = useState(propEnglishSummary || "");
-
-  const [isEditingMyanmar, setIsEditingMyanmar] = useState(false);
-  const [myanmarSummary, setMyanmarSummary] = useState(propMyanmarSummary || "");
+  const [isEditingSummary, setIsEditingSummary] = useState(false);
+  const [summary, setSummary] = useState(propSummary || "");
   
   useEffect(() => {
-    if (propEnglishSummary) {
-      setEnglishSummary(propEnglishSummary);
-    }
-  }, [propEnglishSummary]);
-
-  useEffect(() => {
-    if (propMyanmarSummary) {
-      setMyanmarSummary(propMyanmarSummary);
-    }
-  }, [propMyanmarSummary]);
+    setSummary(propSummary || "");
+  }, [propSummary]);
 
   const [isPlayingPlayback, setIsPlayingPlayback] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
@@ -73,28 +65,14 @@ export default function LeftPanel({
     return () => clearInterval(interval);
   }, [isPlayingPlayback, playbackTime, timer]);
 
-  const isRecording = status === "active";
+  const isRecording = status === "recording";
   const isPaused = status === "paused";
-  const isFinished = status === "processing" || status === "done" || status === "stopped"; 
-
-  // --- Download Function ---
-  const handleDownload = () => {
-    const content = "This is a dummy audio transcript or audio blob placeholder.\nTime recorded: " + formatTime(timer);
-    const blob = new Blob([content], { type: 'text/plain' }); 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Meeting_Record_${new Date().getTime()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const isFinished = status === "ready";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {/* Recording & Audio Player Box */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <h3 className="font-semibold text-gray-900 mb-4 text-[15px]">
           {isFinished ? "Recorded Audio" : "Recording"}
         </h3>
@@ -167,7 +145,7 @@ export default function LeftPanel({
             }
           </span>
           <button 
-            onClick={handleDownload}
+            onClick={onDownloadAudio}
             className={`shrink-0 ml-2 transition-colors ${isFinished ? 'text-gray-500 hover:text-violet-600' : 'text-gray-300 cursor-not-allowed'}`}
             disabled={!isFinished}
             title={isFinished ? "Download Record" : "Cannot download yet"}
@@ -177,69 +155,44 @@ export default function LeftPanel({
         </div>
       </div>
 
-      {/* English Summary */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">AI Summary (English)</h3>
-        {(status === "active" || status === "idle" || status === "paused") ? (
+      {audioUrl && ['ready', 'processing_ai', 'error'].includes(status) && !translationComplete && (
+        <button onClick={onGenerateTranslation} disabled={isGeneratingTranslation || status === 'processing_ai'} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors disabled:opacity-50">
+          {isGeneratingTranslation || status === 'processing_ai' ? 'Translating…' : 'Generate Translation'}
+        </button>
+      )}
+
+      {/* Summary */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">Summary</h3>
+        {(status === "recording" || status === "idle" || status === "paused" || status === 'requesting_mic' || status === 'uploading' || status === 'processing_ai') ? (
           <div className="py-4 text-gray-400 text-sm text-center">Waiting for processing...</div>
-        ) : status === "processing" ? (
+        ) : status === "processing_ai" ? (
           <div className="py-1"><SkeletonText lines={3} /></div>
         ) : (
           <>
-            {isEditingEnglish ? (
+            {isEditingSummary ? (
               <div>
                 <textarea
-                  value={englishSummary}
-                  onChange={(e) => setEnglishSummary(e.target.value)}
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
                   className="w-full p-3 text-[#475467] text-[14px] leading-[1.6] border border-violet-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-y"
                   rows={4}
                 />
                 <div className="flex justify-end gap-2 mt-3">
-                  <button onClick={() => setIsEditingEnglish(false)} className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-                  <button onClick={() => setIsEditingEnglish(false)} className="px-3 py-1.5 text-xs font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">Save</button>
+                  <button onClick={() => { setSummary(propSummary || ""); setIsEditingSummary(false); }} className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+                  <button onClick={() => setIsEditingSummary(false)} className="px-3 py-1.5 text-xs font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">Save</button>
                 </div>
               </div>
             ) : (
               <>
-                <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{englishSummary || "No summary available."}</p>
-                <button onClick={() => setIsEditingEnglish(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
+                <p className="text-[#475467] text-[14px] leading-[1.6] mb-5">{summary || "No summary available."}</p>
+                <button onClick={() => setIsEditingSummary(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
               </>
             )}
           </>
         )}
       </div>
 
-      {/* Myanmar Summary */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="font-semibold text-gray-900 mb-3 text-[15px]">AI Summary (Myanmar)</h3>
-        {(status === "active" || status === "idle" || status === "paused") ? (
-          <div className="py-4 text-gray-400 text-sm text-center">Waiting for processing...</div>
-        ) : status === "processing" ? (
-          <div className="py-1"><SkeletonText lines={4} /></div>
-        ) : (
-          <>
-            {isEditingMyanmar ? (
-              <div>
-                <textarea
-                  value={myanmarSummary}
-                  onChange={(e) => setMyanmarSummary(e.target.value)}
-                  className="w-full p-3 text-[#475467] text-[14px] leading-[1.8] font-myanmar border border-violet-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 resize-y"
-                  rows={4}
-                />
-                <div className="flex justify-end gap-2 mt-3">
-                  <button onClick={() => setIsEditingMyanmar(false)} className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-                  <button onClick={() => setIsEditingMyanmar(false)} className="px-3 py-1.5 text-xs font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors">Save</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-[#475467] text-[14px] leading-[1.8] font-myanmar mb-5">{myanmarSummary || "အကျဉ်းချုပ် မရှိသေးပါ။"}</p>
-                <button onClick={() => setIsEditingMyanmar(true)} className="px-4 py-2 text-sm font-semibold text-violet-600 border border-violet-200 rounded-lg hover:bg-violet-50 transition-colors">Edit Summary</button>
-              </>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

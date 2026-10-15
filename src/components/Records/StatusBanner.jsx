@@ -9,15 +9,20 @@ export default function StatusBanner({
   formatTime, 
   handleStop,
   handlePause,
-  handleResume
+  handleResume,
+  uploadProgress = 0,
+  errorMessage = '',
+  onRetry,
+  activityMessage = '',
+  isUploading = false
 }) {
 
-  if ((status === "active" || status === "paused") && actionType !== "upload_file") {
-    const isActive = status === "active";
+  if ((status === "recording" || status === "paused") && actionType !== "upload_file") {
+    const isActive = status === "recording";
 
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex w-full min-w-0 flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <span className="flex h-3 w-3 relative">
             {isActive && (
               <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-red-400 opacity-75"></span>
@@ -29,10 +34,11 @@ export default function StatusBanner({
               ? (isActive ? "Live Transcription in progress..." : "Live Transcription paused") 
               : (isActive ? "Recording in progress..." : "Recording paused")}
           </span>
+          {activityMessage && <span className="w-full text-xs text-blue-700">{activityMessage}</span>}
           
           <span className="text-blue-700 font-mono bg-blue-100 px-2 py-1 rounded-md">{formatTime(timer)}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isActive ? (
             <button 
               onClick={handlePause} 
@@ -60,16 +66,23 @@ export default function StatusBanner({
     );
   }
 
-  if (status === "processing") {
+  if (status === 'requesting_mic') return <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">Requesting microphone permission…</div>;
+  if (status === 'initializing_recorder') return <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">Microphone ready. Preparing the recording…</div>;
+
+  if (isUploading || status === "uploading") {
     return (
-      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex items-center gap-3">
+      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex w-full min-w-0 flex-wrap items-center gap-3">
         <Loader2 className="animate-spin text-violet-600" size={20} />
-        <span className="font-semibold text-violet-900">
-          {actionType === "upload_file" ? `Uploading & Processing "${fileName}"... Please wait.` : "AI is analyzing and generating summaries... Please wait."}
-        </span>
+        <span className="font-semibold text-violet-900">Uploading {fileName || 'recording'}… {uploadProgress}%</span>
+        <div className="w-full h-2 rounded-full bg-violet-100 overflow-hidden" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin="0" aria-valuemax="100">
+          <div className="h-full bg-violet-600 transition-all" style={{ width: `${uploadProgress}%` }} />
+        </div>
       </div>
     );
   }
+
+  if (status === 'processing_ai') return <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 flex items-center gap-3"><Loader2 className="animate-spin text-violet-600" size={20} /> AI is analyzing the uploaded recording…</div>;
+  if (status === 'error') return <div role="alert" className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-800"><p>{errorMessage || 'Something went wrong.'}</p><button onClick={onRetry} className="mt-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white">Retry</button></div>;
 
   return null;
 }

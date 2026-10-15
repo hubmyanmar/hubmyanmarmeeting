@@ -15,8 +15,7 @@ import LiveMeeting from './pages/LiveMeeting';
 import OverdueActionsPage from './pages/OverdueActionsPage';
 import { RecordingProvider } from './context/RecordingContext';
 import { normalizeMeetingStatus } from './utils/meetingSessionState';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import api from './api';
 
 export default function App() {
   const [bookedMeetings, setBookedMeetings] = useState([]);
@@ -28,11 +27,8 @@ export default function App() {
   useEffect(() => {
     const fetchMeetingsFromDB = async () => {
       try {
-        const meetingsRes = await fetch(`${API_BASE_URL}/meetings`); 
-        if (meetingsRes.ok) {
-          const dbData = await meetingsRes.json();
-          setBookedMeetings(Array.isArray(dbData) ? dbData : []);
-        }
+        const { data: dbData } = await api.get('/meetings');
+        setBookedMeetings(Array.isArray(dbData) ? dbData : []);
       } catch (error) {
         console.error("Error fetching meetings from Database:", error);
       }
@@ -43,35 +39,32 @@ export default function App() {
 
   const fetchSessionsFromDB = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/meeting-sessions`);
-      if (res.ok) {
-        const sessionsData = await res.json();
-        const normalizedMap = {};
+      const { data: sessionsData } = await api.get('/meeting-sessions');
+      const normalizedMap = {};
 
-        if (Array.isArray(sessionsData)) {
-          sessionsData.forEach((session, index) => {
-            const key = String(session?.meeting_id || session?.id || session?.meetingId || index);
-            normalizedMap[key] = {
-              ...session,
-              meeting_id: session?.meeting_id || key,
-              id: session?.id || key,
-              meetingId: session?.meetingId || key,
-            };
-          });
-        } else if (sessionsData && typeof sessionsData === 'object') {
-          Object.entries(sessionsData).forEach(([key, session]) => {
-            const safeSession = session && typeof session === 'object' ? session : { status: session };
-            normalizedMap[String(key)] = {
-              ...safeSession,
-              meeting_id: safeSession.meeting_id || key,
-              id: safeSession.id || key,
-              meetingId: safeSession.meetingId || key,
-            };
-          });
-        }
-
-        setMeetingSessions(normalizedMap);
+      if (Array.isArray(sessionsData)) {
+        sessionsData.forEach((session, index) => {
+          const key = String(session?.meeting_id || session?.id || session?.meetingId || index);
+          normalizedMap[key] = {
+            ...session,
+            meeting_id: session?.meeting_id || key,
+            id: session?.id || key,
+            meetingId: session?.meetingId || key,
+          };
+        });
+      } else if (sessionsData && typeof sessionsData === 'object') {
+        Object.entries(sessionsData).forEach(([key, session]) => {
+          const safeSession = session && typeof session === 'object' ? session : { status: session };
+          normalizedMap[String(key)] = {
+            ...safeSession,
+            meeting_id: safeSession.meeting_id || key,
+            id: safeSession.id || key,
+            meetingId: safeSession.meetingId || key,
+          };
+        });
       }
+
+      setMeetingSessions(normalizedMap);
     } catch (error) {
       console.error("Error fetching meeting sessions from Database:", error);
     }
@@ -126,19 +119,8 @@ export default function App() {
         }
       }));
       
-      const res = await fetch(`${API_BASE_URL}/meeting-sessions/${targetId}/status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(normalizedSession)
-      });
-
-      if (res.ok) {
-        await fetchSessionsFromDB();
-      } else {
-        console.error("Failed to update meeting session status, status code:", res.status);
-      }
+      await api.post(`/meeting-sessions/${targetId}/status`, normalizedSession);
+      await fetchSessionsFromDB();
     } catch (error) {
       console.error("Error saving meeting session to Database:", error);
     }
@@ -148,11 +130,8 @@ export default function App() {
   useEffect(() => {
     const fetchRoomsFromDB = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/meeting-rooms`);
-        if (res.ok) {
-          const roomsData = await res.json();
-          setMeetingRooms(Array.isArray(roomsData) ? roomsData : []);
-        }
+        const { data: roomsData } = await api.get('/meeting-rooms');
+        setMeetingRooms(Array.isArray(roomsData) ? roomsData : []);
       } catch (error) {
         console.error("Error fetching meeting rooms from Database:", error);
       }
@@ -165,11 +144,8 @@ export default function App() {
   useEffect(() => {
     const fetchUserFromDB = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/users`);
-        if (res.ok) {
-          const userData = await res.json();
-          setCurrentUser(userData);
-        }
+        const { data: userData } = await api.get('/users');
+        setCurrentUser(userData);
       } catch (error) {
         console.error('Error fetching user from Database:', error);
       }
@@ -248,7 +224,6 @@ export default function App() {
                 currentUser={currentUser}
                 refreshSessions={fetchSessionsFromDB} 
                 onSaveSession={saveMeetingSession}
-                apiUrl={`${API_BASE_URL}/meeting-sessions`}
               />
             } 
           />
