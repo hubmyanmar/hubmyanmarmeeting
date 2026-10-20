@@ -89,6 +89,14 @@ export default function DashboardHome({
 
   const { todayMeetings, upcomingMeetings, pendingCount, overdueCount } = useMemo(() => {
     const todayStr = getTodayDateString(); 
+    const nowDate = new Date();
+    const previousMonthLastDay = new Date(nowDate.getFullYear(), nowDate.getMonth(), 0).getDate();
+    const oneMonthAgo = new Date(
+      nowDate.getFullYear(),
+      nowDate.getMonth() - 1,
+      Math.min(nowDate.getDate(), previousMonthLastDay)
+    );
+    const oneMonthAgoStr = `${oneMonthAgo.getFullYear()}-${String(oneMonthAgo.getMonth() + 1).padStart(2, '0')}-${String(oneMonthAgo.getDate()).padStart(2, '0')}`;
 
     const today = bookedMeetings.filter(m => {
       const mDate = formatDisplayValue(m.date || m.meeting_date);
@@ -110,7 +118,7 @@ export default function DashboardHome({
       const mDate = formatDisplayValue(m.date || m.meeting_date);
       const id = getMeetingId(m);
       const status = getSessionStatus(id, meetingSessions);
-      return mDate && mDate < todayStr && status !== 'stopped';
+      return mDate && mDate >= oneMonthAgoStr && mDate < todayStr && status !== 'stopped';
     }).length;
 
     return {
