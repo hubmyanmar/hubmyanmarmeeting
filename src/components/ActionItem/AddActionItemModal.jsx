@@ -1,6 +1,14 @@
 import React from 'react';
 
-export default function AddActionItemModal({ isOpen, onClose, onAddTask }) {
+export default function AddActionItemModal({
+  isOpen,
+  onClose,
+  onAddTask,
+  users = [],
+  meetings = [],
+  currentMeeting,
+  currentMeetingId,
+}) {
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
@@ -10,7 +18,7 @@ export default function AddActionItemModal({ isOpen, onClose, onAddTask }) {
     
     const newTaskData = {
       title: formData.get('title'),
-      meeting: formData.get('meeting'),
+      meeting_id: formData.get('meeting_id'),
       priority: formData.get('priority'),
       assignee: formData.get('assignee'),
       dueDate: formData.get('dueDate'),
@@ -56,12 +64,34 @@ export default function AddActionItemModal({ isOpen, onClose, onAddTask }) {
             {/* Project / Meeting */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Project / Meeting</label>
-              <input 
-                type="text" 
-                name="meeting"
-                placeholder="e.g. Marketing Sync"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+              {currentMeetingId ? (
+                <>
+                  <input
+                    type="text"
+                    value={currentMeeting?.title || `Meeting #${currentMeetingId}`}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input type="hidden" name="meeting_id" value={currentMeetingId} />
+                </>
+              ) : (
+                <select
+                  name="meeting_id"
+                  required
+                  defaultValue=""
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="" disabled>Select meeting...</option>
+                  {meetings.map((meeting) => {
+                    const id = meeting.meeting_id ?? meeting.id ?? meeting.meetingId;
+                    return (
+                      <option key={id} value={id}>
+                        {meeting.title || `Meeting #${id}`}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
 
             {/* Priority */}
@@ -79,12 +109,13 @@ export default function AddActionItemModal({ isOpen, onClose, onAddTask }) {
             {/* Assignee */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Assignee</label>
-              <select name="assignee" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <select name="assignee" required defaultValue="" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                 <option value="">Select team member...</option>
-                <option value="Alex Kim">Alex Kim</option>
-                <option value="Sarah Chen">Sarah Chen</option>
-                <option value="Priya Shah">Priya Shah</option>
-                <option value="Yu Yu">Yu Yu</option>
+                {users.map((user, index) => (
+                  <option key={user.email || user.id || index} value={user.name || user.email}>
+                    {user.name} — {user.email}
+                  </option>
+                ))}
               </select>
             </div>
 

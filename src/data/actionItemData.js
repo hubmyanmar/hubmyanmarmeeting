@@ -227,3 +227,14 @@ export const initialColumns = [
     ]
   }
 ];
+
+export const statusToApi = {
+  'To Do': 'to_do',
+  'In Progress': 'in_progress',
+  'Under Review': 'under_review',
+  Completed: 'complete',
+};
+
+export const statusFromApi = Object.fromEntries(
+  Object.entries(statusToApi).map(([label, value]) => [value, label]),
+);
