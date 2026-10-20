@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function AddActionItemModal({
   isOpen,
@@ -9,10 +9,42 @@ export default function AddActionItemModal({
   currentMeeting,
   currentMeetingId,
 }) {
+  const [assigneeInput, setAssigneeInput] = useState('');
+  const [selectedAssignee, setSelectedAssignee] = useState(null);
+  const [showAssigneeSuggestions, setShowAssigneeSuggestions] = useState(false);
+  const assigneeDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(event.target)) {
+        setShowAssigneeSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setAssigneeInput('');
+      setSelectedAssignee(null);
+      setShowAssigneeSuggestions(false);
+    }
+  }, [isOpen]);
+
+  const availableAssigneeSuggestions = users.filter((user) => {
+    const query = assigneeInput.toLowerCase();
+    return (user.name || '').toLowerCase().includes(query) || (user.email || '').toLowerCase().includes(query);
+  });
+
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!selectedAssignee) {
+      setShowAssigneeSuggestions(true);
+      return;
+    }
 
     const formData = new FormData(e.target);
     
@@ -109,14 +141,49 @@ export default function AddActionItemModal({
             {/* Assignee */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">Assignee</label>
-              <select name="assignee" required defaultValue="" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                <option value="">Select team member...</option>
-                {users.map((user, index) => (
-                  <option key={user.email || user.id || index} value={user.name || user.email}>
-                    {user.name} — {user.email}
-                  </option>
-                ))}
-              </select>
+              <div className="relative" ref={assigneeDropdownRef}>
+                <input
+                  type="text"
+                  value={assigneeInput}
+                  required
+                  autoComplete="off"
+                  placeholder="Select team member..."
+                  aria-autocomplete="list"
+                  aria-expanded={showAssigneeSuggestions}
+                  onChange={(e) => {
+                    setAssigneeInput(e.target.value);
+                    setSelectedAssignee(null);
+                    setShowAssigneeSuggestions(true);
+                  }}
+                  onFocus={() => setShowAssigneeSuggestions(true)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                />
+                <input
+                  type="hidden"
+                  name="assignee"
+                  value={selectedAssignee ? (selectedAssignee.name || selectedAssignee.email) : ''}
+                />
+                {showAssigneeSuggestions && availableAssigneeSuggestions.length > 0 && (
+                  <ul role="listbox" className="absolute z-30 w-full bg-white border border-gray-100 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto divide-y divide-gray-50">
+                    {availableAssigneeSuggestions.map((user, index) => (
+                      <li
+                        key={user.email || user.zoho_user_id || user.id || index}
+                        role="option"
+                        aria-selected={selectedAssignee === user}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setSelectedAssignee(user);
+                          setAssigneeInput(user.name || 'Unnamed user');
+                          setShowAssigneeSuggestions(false);
+                        }}
+                        className="px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer transition-colors"
+                      >
+                        <div className="font-medium text-gray-900">{user.name || 'Unnamed user'}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
             {/* Due Date */}

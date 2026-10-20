@@ -66,7 +66,7 @@ export default function MobileActionItems({
   };
 
   return (
-    <div className="px-4 pb-28 pt-4">
+    <div className="w-auto -mx-8 -mt-8 px-3 pt-4 pb-24">
       <h1 className="mb-4 text-xl font-extrabold tracking-tight text-gray-900">
         {currentMeeting?.title ? `Action Items: ${currentMeeting.title}` : 'Action Items'}
       </h1>
@@ -85,8 +85,8 @@ export default function MobileActionItems({
         ))}
       </div>
 
-      <div className="mb-4 -mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-max gap-3 pb-1">
+      <div className="mb-4 -mx-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max gap-4 pb-1">
           {stats.map((stat) => (
             <div key={stat.id} className={`w-36 shrink-0 rounded-2xl border p-3 ${STAT_COLORS[stat.title] || 'border-gray-100 bg-white text-gray-700'}`}>
               <p className="text-[11px] font-semibold opacity-80">{stat.title}</p>
@@ -116,22 +116,22 @@ export default function MobileActionItems({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {activeColumn?.tasks.length ? activeColumn.tasks.map((task) => (
           <button
             key={task.id}
             type="button"
             onClick={() => setSelectedTask(task)}
-            className="block w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm active:bg-indigo-50/40"
+            className="block w-full rounded-2xl border border-gray-100 bg-white p-3.5 text-left shadow-sm active:bg-indigo-50/40"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-2">
               <span className="text-sm font-bold leading-snug text-gray-900">{task.title}</span>
               <span className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold ${task.priority === 'High' ? 'border-red-100 bg-red-50 text-red-600' : task.priority === 'Low' ? 'border-emerald-100 bg-emerald-50 text-emerald-600' : 'border-amber-100 bg-amber-50 text-amber-600'}`}>
                 {task.priority}
               </span>
             </div>
-            <p className="mt-2 truncate text-xs text-gray-500">{task.meeting}</p>
-            <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">
+            <p className="mt-1.5 truncate text-xs text-gray-500">{task.meeting}</p>
+            <div className="mt-1.5 flex items-center justify-between border-t border-gray-100 pt-1.5 text-xs text-gray-500">
               <span className="truncate pr-3">{task.assignee}</span>
               <span className="shrink-0">{task.date?.replace(/^(Due|Created|Recorded):\s*/i, '')}</span>
             </div>
