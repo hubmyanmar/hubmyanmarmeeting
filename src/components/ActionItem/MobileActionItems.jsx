@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const STAT_COLORS = {
   'Total Tasks': 'border-indigo-100 bg-indigo-50 text-indigo-700',
@@ -25,6 +25,10 @@ export default function MobileActionItems({
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [assigneeInput, setAssigneeInput] = useState('');
+  const [selectedAssignee, setSelectedAssignee] = useState(null);
+  const [showAssigneeSuggestions, setShowAssigneeSuggestions] = useState(false);
+  const assigneeDropdownRef = useRef(null);
 
   useEffect(() => {
     const today = new Date();
@@ -38,6 +42,29 @@ export default function MobileActionItems({
   useEffect(() => {
     if (startDate && endDate) onDateRangeChange(startDate, endDate);
   }, [startDate, endDate, onDateRangeChange]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(event.target)) {
+        setShowAssigneeSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!showAddSheet) {
+      setAssigneeInput('');
+      setSelectedAssignee(null);
+      setShowAssigneeSuggestions(false);
+    }
+  }, [showAddSheet]);
+
+  const availableAssigneeSuggestions = users.filter((user) => {
+    const query = assigneeInput.toLowerCase();
+    return (user.name || '').toLowerCase().includes(query) || (user.email || '').toLowerCase().includes(query);
+  });
 
   const activeColumn = columns.find((column) => column.id === activeColumnId) || columns[0];
 
@@ -206,10 +233,49 @@ export default function MobileActionItems({
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-xs font-semibold text-gray-600">Assignee *
-                  <select name="assignee" required defaultValue="" className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-2.5 py-3 text-xs font-normal text-gray-700">
-                    <option value="" disabled>Select user...</option>
-                    {users.map((user, index) => <option key={user.email || user.id || index} value={user.name || user.email}>{user.name || user.email} — {user.email}</option>)}
-                  </select>
+                  <div className="relative mt-1.5" ref={assigneeDropdownRef}>
+                    <input
+                      type="text"
+                      value={assigneeInput}
+                      required
+                      autoComplete="off"
+                      placeholder="Select user..."
+                      aria-autocomplete="list"
+                      aria-expanded={showAssigneeSuggestions}
+                      onChange={(event) => {
+                        setAssigneeInput(event.target.value);
+                        setSelectedAssignee(null);
+                        setShowAssigneeSuggestions(true);
+                      }}
+                      onFocus={() => setShowAssigneeSuggestions(true)}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-2.5 py-3 text-xs font-normal text-gray-700"
+                    />
+                    <input
+                      type="hidden"
+                      name="assignee"
+                      value={selectedAssignee ? (selectedAssignee.name || selectedAssignee.email) : ''}
+                    />
+                    {showAssigneeSuggestions && availableAssigneeSuggestions.length > 0 && (
+                      <ul role="listbox" className="absolute z-30 w-full rounded-xl border border-gray-100 bg-white shadow-lg mt-1 max-h-40 overflow-y-auto divide-y divide-gray-50">
+                        {availableAssigneeSuggestions.map((user, index) => (
+                          <li
+                            key={user.email || user.zoho_user_id || user.id || index}
+                            role="option"
+                            aria-selected={selectedAssignee === user}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setSelectedAssignee(user);
+                              setAssigneeInput(user.name || 'Unnamed user');
+                              setShowAssigneeSuggestions(false);
+                            }}
+                            className="cursor-pointer px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                          >
+                            <div className="font-medium text-gray-900">{user.name || 'Unnamed user'}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </label>
                 <label className="block text-xs font-semibold text-gray-600">Priority
                   <select name="priority" defaultValue="Medium" className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-normal text-gray-700">
