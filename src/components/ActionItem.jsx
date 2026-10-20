@@ -6,6 +6,7 @@ import ActionNavbar from './ActionItem/ActionNavbar';
 import ActionStats from './ActionItem/ActionStats';
 import KanbanColumn from './ActionItem/KanbanColumn';
 import AddActionItemModal from './ActionItem/AddActionItemModal';
+import MobileActionItems from './ActionItem/MobileActionItems';
 
 const getMeetingId = (meeting) => meeting?.meeting_id ?? meeting?.id ?? meeting?.meetingId ?? null;
 
@@ -212,13 +213,50 @@ export default function ActionItem({ meetingData: propMeetingData }) {
         column.id === 'todo' ? { ...column, tasks: [...column.tasks, createdTask] } : column
       )));
       setIsModalOpen(false);
+      return true;
     } catch (error) {
       console.error('Failed to create action item:', error);
+      return false;
+    }
+  };
+
+  const handleMobileStatusChange = async (task, status) => {
+    try {
+      const { data } = await api.put(`/action-items/${task.id}`, { status: statusToApi[status] });
+      const updatedTask = toTask(data, meetings);
+      const updatedStatus = statusToApi[updatedTask.status];
+      setColumns((previous) => previous.map((column) => ({
+        ...column,
+        tasks: [
+          ...column.tasks.filter((item) => String(item.id) !== String(task.id)),
+          ...(statusToApi[column.title] === updatedStatus ? [updatedTask] : []),
+        ],
+      })));
+      return true;
+    } catch (error) {
+      console.error('Failed to update action item status:', error);
+      return false;
     }
   };
 
   return (
     <div className="min-h-screen bg-[#f8faef]/40 text-gray-800 font-sans pb-12 relative">
+      <div className="md:hidden">
+        <MobileActionItems
+          columns={filteredColumns}
+          stats={dynamicStats}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onDateRangeChange={handleDateRangeChange}
+          users={users}
+          meetings={meetings}
+          currentMeeting={meetingData}
+          currentMeetingId={contextMeetingId}
+          onAddTask={handleAddTask}
+          onStatusChange={handleMobileStatusChange}
+        />
+      </div>
+      <div className="hidden md:block">
       <ActionNavbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -291,6 +329,7 @@ export default function ActionItem({ meetingData: propMeetingData }) {
         currentMeeting={meetingData}
         currentMeetingId={contextMeetingId}
       />
+      </div>
     </div>
   );
 }
