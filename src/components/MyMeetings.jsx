@@ -111,7 +111,7 @@ export default function MyMeetings({ bookedMeetings = [] }) {
       location: meetingTypeVal === 'online' ? 'Online Meeting' : roomName,
       participantsList: participantsList,
       total: `${count} Participants`,
-      desc: b.purpose || b.description || 'No purpose description provided.'
+      desc: b.agenda || b.purpose || b.description || 'No purpose description provided.'
     };
   });
 
