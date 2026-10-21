@@ -498,10 +498,12 @@ export default function MeetingRecords() {
                 {activeTab === 'AI Summary' && (
                   <div className="space-y-4 text-sm text-slate-600">
                     <p className="whitespace-pre-wrap">{selectedRecord.summary || 'No English summary is available.'}</p>
-                    <p className="whitespace-pre-wrap">{selectedRecord.summaryMy || 'No Myanmar summary is available.'}</p>
-                    {Array.isArray(selectedRecord.key_decisions) && selectedRecord.key_decisions.length > 0 && (
-                      <ul className="list-disc pl-5">{selectedRecord.key_decisions.map((decision, index) => <li key={index}>{displayName(decision) || String(decision)}</li>)}</ul>
-                    )}
+                    <section>
+                      <h4 className="font-semibold text-slate-900">Decisions</h4>
+                      {Array.isArray(selectedRecord.key_decisions) && selectedRecord.key_decisions.length > 0 ? (
+                        <ul className="list-disc pl-5">{selectedRecord.key_decisions.map((decision, index) => <li key={index}>{displayName(decision) || String(decision)}</li>)}</ul>
+                      ) : <p>No decisions recorded.</p>}
+                    </section>
                   </div>
                 )}
                 {activeTab === 'Action Items' && (selectedRecord.actionItems.length
