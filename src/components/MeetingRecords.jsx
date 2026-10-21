@@ -54,7 +54,9 @@ const normalizeRecord = (record, index) => {
     summary,
     summaryMy: record.summary_my || record.ai_summary_my || record.summary?.myanmar || record.summary?.my || '',
     notes: record.notes || record.subtitle || record.description || record.agenda || '',
-    actionItems: Array.isArray(record.action_items) ? record.action_items : Array.isArray(record.actionItems) ? record.actionItems : [],
+    key_decisions: record.key_decisions ?? record.decisions,
+    actionItems: (Array.isArray(record.action_items) ? record.action_items : Array.isArray(record.actionItems) ? record.actionItems : [])
+      .map((item) => ({ ...item, due_date: item?.due_date ?? item?.deadline })),
     participants: Array.isArray(participants)
       ? participants.length || Number(record.participant_count || record.attendee_count) || 0
       : Number(record.participant_count || record.attendee_count || participants) || 0,
