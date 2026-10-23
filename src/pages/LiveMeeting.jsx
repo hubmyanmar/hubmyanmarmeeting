@@ -989,7 +989,7 @@ export default function LiveMeeting({
       persistUploadedAudio(rawMeeting, uploaded.fileUrl);
       await loadMeetingUpload(getMeetingId(rawMeeting));
       setStatus('ready');
-      await saveRunningSession(rawMeeting);
+      await saveStoppedSession(rawMeeting, Number(rawMeeting.duration_seconds || rawMeeting.actual_duration || 0));
     } catch (error) {
       console.error('Audio upload failed:', error);
       errorSourceRef.current = 'file_upload';
