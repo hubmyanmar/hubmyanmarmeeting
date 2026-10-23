@@ -19,6 +19,7 @@ const toTask = (item, meetings) => {
     title: item.task || 'Untitled Task',
     assignee,
     date: item.due_date ? `Due: ${item.due_date}` : `Created: ${item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`,
+    due_date: item.due_date,
     meeting: meeting?.title || `Meeting #${item.meeting_id}`,
     priority: item.priority || 'Medium',
     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee)}&background=random`,
@@ -122,8 +123,8 @@ export default function ActionItem({ meetingData: propMeetingData }) {
       const matchesSearch = !query || [task.title, task.meeting, task.assignee, task.priority]
         .some((value) => value?.toLowerCase().includes(query));
       let matchesDate = true;
-      if (dateRange.start && dateRange.end && task.date) {
-        const rawDate = task.date.replace(/^(Due|Created|Recorded):\s*/i, '').split(',')[0].trim();
+      if (task.due_date && dateRange.start && dateRange.end) {
+        const rawDate = task.due_date;
         const taskDate = new Date(rawDate);
         const startDate = new Date(dateRange.start);
         const endDate = new Date(dateRange.end);

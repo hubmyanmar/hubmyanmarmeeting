@@ -6,11 +6,12 @@ export default function ActionNavbar({ searchQuery, onSearchChange, onDateRangeC
   const today = new Date();
   const lastMonth = new Date();
   lastMonth.setMonth(today.getMonth() - 1);
+  const endOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
 
   const formatForInput = (date) => date.toISOString().split('T')[0];
 
   const [startDate, setStartDate] = useState(formatForInput(lastMonth));
-  const [endDate, setEndDate] = useState(formatForInput(today));
+  const [endDate, setEndDate] = useState(formatForInput(endOfNextMonth));
 
   useEffect(() => {
     if (onDateRangeChange) {
