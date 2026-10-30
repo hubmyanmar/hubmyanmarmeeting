@@ -128,7 +128,6 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
       meeting_type: data.meetingType.toLowerCase() === "face to face" ? "face to face" : "online",
       platform: data.meetingType.toLowerCase() === "online" ? (data.platform || null) : null,
       room_id: data.meetingType.toLowerCase() === "face to face" && data.room ? Number(data.room) : null,
-      created_by: currentUser?.id || 1, 
       invite_cliq: Boolean(data.inviteCliq),
       participants: (data.participants || []).map(p => ({
         email: p.email,
