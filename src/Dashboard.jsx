@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { clearAuthSession, isAccessTokenValid } from './utils/auth';
 
-export default function Dashboard({ currentUser }) {
+export default function Dashboard({ currentUser, userResolved }) {
   const location = useLocation();
   const [user, setUser] = useState(currentUser);
   const hasValidToken = isAccessTokenValid(localStorage.getItem('access_token'));
@@ -22,7 +22,9 @@ export default function Dashboard({ currentUser }) {
     return localStorage.getItem('savedProfileImage') || null;
   });
 
-  if (!hasValidToken || !user) return <Navigate to="/" replace state={{ from: location }} />;
+  if (!hasValidToken) return <Navigate to="/" replace state={{ from: location }} />;
+  if (!userResolved) return null;
+  if (!currentUser) return <Navigate to="/" replace state={{ from: location }} />;
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-800 overflow-hidden">

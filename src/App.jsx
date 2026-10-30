@@ -39,10 +39,12 @@ export default function App() {
   const [bookedMeetings, setBookedMeetings] = useState([]);
   const [meetingRooms, setMeetingRooms] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [userResolved, setUserResolved] = useState(false);
   const [meetingSessions, setMeetingSessions] = useState({});
   const staleUserCleanupDone = useRef(false);
 
   const resolveCurrentUser = async () => {
+    setUserResolved(false);
     const token = localStorage.getItem('access_token');
     const tokenPayload = decodeTokenPayload(token);
     const tokenUserId = tokenPayload?.sub;
@@ -50,6 +52,7 @@ export default function App() {
     if (tokenUserId === undefined || tokenUserId === null || tokenUserId === '') {
       console.error('Unable to resolve current user: access token has no sub claim.');
       setCurrentUser(null);
+      setUserResolved(true);
       return;
     }
 
@@ -64,6 +67,7 @@ export default function App() {
     setCurrentUser(tokenUser);
 
     if (hasProfileClaims) {
+      setUserResolved(true);
       return;
     }
 
@@ -75,6 +79,7 @@ export default function App() {
       if (!matchedUser) {
         console.error('Unable to resolve current user: no /users entry matches the token sub claim.');
         setCurrentUser(null);
+        setUserResolved(true);
         return;
       }
 
@@ -83,6 +88,7 @@ export default function App() {
       console.error('Error resolving current user from /users:', error);
       setCurrentUser(null);
     }
+    setUserResolved(true);
   };
 
   useEffect(() => {
@@ -91,6 +97,7 @@ export default function App() {
     if (localStorage.getItem('currentUser')) localStorage.removeItem('currentUser');
     if (localStorage.getItem('authUser')) localStorage.removeItem('authUser');
     if (localStorage.getItem('access_token')) resolveCurrentUser();
+    else setUserResolved(true);
   }, []);
   
   // 1. Meetings Fetch
@@ -222,7 +229,7 @@ export default function App() {
     <RecordingProvider>
       <Routes>
         <Route path="/" element={<AuthCard setCurrentUser={handleLoginResolved} />} />
-        <Route path="/dashboard" element={<Dashboard currentUser={currentUser} />}>
+        <Route path="/dashboard" element={<Dashboard currentUser={currentUser} userResolved={userResolved} />}>
           <Route 
             index 
             element={
