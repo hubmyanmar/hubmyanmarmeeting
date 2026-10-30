@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { clearAuthSession, isAccessTokenValid } from './utils/auth';
 
 export default function Dashboard({ currentUser }) {
+  const location = useLocation();
   const [user, setUser] = useState(currentUser);
   const hasValidToken = isAccessTokenValid(localStorage.getItem('access_token'));
 
