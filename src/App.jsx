@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthCard from './Auth/AuthCard'; 
 import Dashboard from './Dashboard'; 
@@ -17,11 +17,81 @@ import { RecordingProvider } from './context/RecordingContext';
 import { normalizeMeetingStatus } from './utils/meetingSessionState';
 import api from './api';
 
+const decodeTokenPayload = (token) => {
+  if (!token || typeof token !== 'string') return null;
+
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const payloadJson = decodeURIComponent(
+      Array.from(atob(padded), (char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join(''),
+    );
+    return JSON.parse(payloadJson);
+  } catch {
+    return null;
+  }
+};
+
 export default function App() {
   const [bookedMeetings, setBookedMeetings] = useState([]);
   const [meetingRooms, setMeetingRooms] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [meetingSessions, setMeetingSessions] = useState({});
+  const staleUserCleanupDone = useRef(false);
+
+  const resolveCurrentUser = async () => {
+    const token = localStorage.getItem('access_token');
+    const tokenPayload = decodeTokenPayload(token);
+    const tokenUserId = tokenPayload?.sub;
+
+    if (tokenUserId === undefined || tokenUserId === null || tokenUserId === '') {
+      console.error('Unable to resolve current user: access token has no sub claim.');
+      setCurrentUser(null);
+      return;
+    }
+
+    const profileClaims = ['name', 'fullName', 'email', 'position', 'role', 'image'];
+    const hasProfileClaims = profileClaims.some((claim) => tokenPayload[claim] !== undefined && tokenPayload[claim] !== null);
+    const tokenUser = {
+      id: tokenUserId,
+      ...Object.fromEntries(profileClaims
+        .filter((claim) => tokenPayload[claim] !== undefined && tokenPayload[claim] !== null)
+        .map((claim) => [claim, tokenPayload[claim]])),
+    };
+    setCurrentUser(tokenUser);
+
+    if (hasProfileClaims) {
+      return;
+    }
+
+    try {
+      const { data: users } = await api.get('/users');
+      const userList = Array.isArray(users) ? users : [users];
+      const matchedUser = userList.find((candidate) => candidate?.id !== undefined && String(candidate.id) === String(tokenUserId));
+
+      if (!matchedUser) {
+        console.error('Unable to resolve current user: no /users entry matches the token sub claim.');
+        setCurrentUser(null);
+        return;
+      }
+
+      setCurrentUser(matchedUser);
+    } catch (error) {
+      console.error('Error resolving current user from /users:', error);
+      setCurrentUser(null);
+    }
+  };
+
+  useEffect(() => {
+    if (staleUserCleanupDone.current) return;
+    staleUserCleanupDone.current = true;
+    if (localStorage.getItem('currentUser')) localStorage.removeItem('currentUser');
+    if (localStorage.getItem('authUser')) localStorage.removeItem('authUser');
+    if (localStorage.getItem('access_token')) resolveCurrentUser();
+  }, []);
   
   // 1. Meetings Fetch
   useEffect(() => {
@@ -140,21 +210,10 @@ export default function App() {
     fetchRoomsFromDB();
   }, []);
 
-  // 5. User Fetch
-  useEffect(() => {
-    const fetchUserFromDB = async () => {
-      try {
-        const { data: userData } = await api.get('/users');
-        setCurrentUser(userData);
-      } catch (error) {
-        console.error('Error fetching user from Database:', error);
-      }
-    };
-    if (!currentUser) {
-      fetchUserFromDB();
-    }
-  }, [currentUser]);
-  
+  const handleLoginResolved = () => {
+    resolveCurrentUser();
+  };
+
   const handleBookMeeting = async (newMeeting) => {
     setBookedMeetings((prev) => [...prev, newMeeting]);
   };
@@ -162,7 +221,7 @@ export default function App() {
   return (
     <RecordingProvider>
       <Routes>
-        <Route path="/" element={<AuthCard setCurrentUser={setCurrentUser} />} />
+        <Route path="/" element={<AuthCard setCurrentUser={handleLoginResolved} />} />
         <Route path="/dashboard" element={<Dashboard currentUser={currentUser} />}>
           <Route 
             index 

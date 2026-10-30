@@ -105,7 +105,6 @@ export default function AuthCard({ setCurrentUser }) {
           position: ''
         };
 
-        localStorage.setItem('currentUser', JSON.stringify(userData));
         setCurrentUser(userData);
 
         navigate('/dashboard');

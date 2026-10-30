@@ -41,23 +41,8 @@ export default function Sidebar({ user, profileImage }) {
   const location = useLocation();
   const currentPath = location.pathname;
   
-  const [cachedUser] = useState(() => {
-    try {
-      const savedCurrentUser = localStorage.getItem('currentUser');
-      if (savedCurrentUser) return JSON.parse(savedCurrentUser);
-      
-      const savedAuthUser = localStorage.getItem('authUser');
-      if (savedAuthUser) return JSON.parse(savedAuthUser);
-    } catch (e) {
-      console.error("Error parsing user from localStorage:", e);
-    }
-    return null;
-  });
-
-  const activeUser = user || cachedUser;
-  
-  const displayName = activeUser?.name || activeUser?.fullName || "User";
-  const position = activeUser?.position || activeUser?.role || "Member";
+  const displayName = user?.name || user?.fullName || "User";
+  const position = user?.position || user?.role || "Member";
 
   const [showMore, setShowMore] = useState(false);
 
