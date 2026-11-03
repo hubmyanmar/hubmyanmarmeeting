@@ -284,7 +284,6 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
             <input 
               type="time" name="startTime" value={formatTo24Hour(data?.startTime) || "09:00"} 
               onChange={handleTimeChange}
-              onClick={(e) => e.target.showPicker && e.target.showPicker()}
               className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 font-medium cursor-pointer transition-all"
             />
           </div>
@@ -295,7 +294,6 @@ export default function BookingForm({ data, setData, onBook, onClear, isLoading,
             <input 
               type="time" name="endTime" value={formatTo24Hour(data?.endTime) || "10:00"} 
               onChange={handleTimeChange}
-              onClick={(e) => e.target.showPicker && e.target.showPicker()}
               className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-gray-50/40 text-gray-800 font-medium cursor-pointer transition-all"
             />
           </div>
