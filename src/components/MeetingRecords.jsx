@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Search, Calendar, MapPin, User, MoreVertical, X, Filter, ChevronLeft, ChevronRight,
   CheckCircle2, Clock, AlertCircle, FileText, Mic, 
@@ -31,12 +31,22 @@ const statusFor = (value, hasData) => {
 };
 
 /** @param {MeetingRecord} record */
-const normalizeRecord = (record, index) => {
+const normalizeRecord = (record, index, meetingSessions = {}) => {
   const transcript = record.transcript || record.transcript_text || '';
   const summary = record.summary_en || record.ai_summary_en || record.summary?.english || record.summary?.en || (typeof record.summary === 'string' ? record.summary : '');
   const participants = record.participants || record.attendees || [];
   const startTime = record.start_time || record.startTime || '';
-  const endTime = record.end_time || record.endTime || '';
+  const recordMeetingId = record.meeting_id ?? record.meetingId ?? record.id ?? record.meeting_record_id;
+  const matchingSession = Object.values(meetingSessions).find((session) => {
+    const sessionMeetingId = session?.meeting_id ?? session?.id ?? session?.meetingId;
+    return sessionMeetingId != null && recordMeetingId != null && String(sessionMeetingId) === String(recordMeetingId);
+  });
+  const stoppedAt = matchingSession?.actual_ended_at || matchingSession?.stopped_at;
+  const parsedStoppedAt = stoppedAt ? new Date(stoppedAt) : null;
+  const sessionEndTime = parsedStoppedAt && !Number.isNaN(parsedStoppedAt.getTime())
+    ? parsedStoppedAt.toTimeString().slice(0, 8)
+    : '';
+  const endTime = record.end_time || record.endTime || sessionEndTime;
 
   return {
     ...record,
@@ -95,8 +105,8 @@ const StatusBadge = ({ type }) => {
   );
 };
 
-export default function MeetingRecords() {
-  const [records, setRecords] = useState([]);
+export default function MeetingRecords({ meetingSessions = {} }) {
+  const [rawRecords, setRawRecords] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [activeTab, setActiveTab] = useState('Overview');
   const [search, setSearch] = useState('');
@@ -108,11 +118,16 @@ export default function MeetingRecords() {
   const [error, setError] = useState('');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  const records = useMemo(
+    () => rawRecords.map((record, index) => normalizeRecord(record, index, meetingSessions)),
+    [rawRecords, meetingSessions]
+  );
+
   useEffect(() => {
     let isActive = true;
     api.get('/meeting-records/', { baseURL: '/api/v1' })
       .then(({ data }) => {
-        if (isActive) setRecords(extractRecords(data).filter(Boolean).map(normalizeRecord));
+        if (isActive) setRawRecords(extractRecords(data).filter(Boolean));
       })
       .catch((error) => {
         if (isActive) {

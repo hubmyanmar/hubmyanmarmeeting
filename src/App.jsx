@@ -259,7 +259,7 @@ export default function App() {
           
           <Route 
             path="meeting-records" 
-            element={<MeetingRecords currentUser={currentUser} />} 
+            element={<MeetingRecords currentUser={currentUser} meetingSessions={meetingSessions} />} 
           />
           <Route 
             path="action-items" 
