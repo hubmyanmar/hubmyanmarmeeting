@@ -78,7 +78,6 @@ class MultipartUpload {
     console.log('Appending audio to multipart upload:', { chunkBytes: blob.size, currentBytes: this.size });
     this.buffer.push(blob);
     this.bufferSize += blob.size;
-    this.size += blob.size;
     while (this.bufferSize >= PART_SIZE) {
       const part = this.takeBytes(PART_SIZE);
       this.scheduledParts += 1;
