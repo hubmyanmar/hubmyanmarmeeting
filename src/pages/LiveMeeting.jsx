@@ -1178,6 +1178,7 @@ export default function LiveMeeting({
         onPause={() => setIsAudioPlaying(false)}
         onEnded={onPlaybackEnded}
         onTimeUpdate={(event) => setPlaybackTime(event.currentTarget.currentTime)}
+        onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration)}
       />
 
       <MeetingHeader 
