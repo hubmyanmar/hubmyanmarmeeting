@@ -249,7 +249,7 @@ export default function App() {
           />
           <Route 
             path="book-meeting" 
-            element={<BookMeeting onBook={handleBookMeeting} bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
+            element={<BookMeeting setBookedMeetings={setBookedMeetings} bookedMeetings={bookedMeetings} currentUser={currentUser} />} 
           />
           <Route path="book" element={<Navigate to="/dashboard/book-meeting" replace />} />
           <Route 
