@@ -34,7 +34,7 @@ export default function MobileActionItems({
     const today = new Date();
     const lastMonth = new Date();
     lastMonth.setMonth(today.getMonth() - 1);
-    const toInputDate = (date) => date.toISOString().split('T')[0];
+    const toInputDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     setStartDate(toInputDate(lastMonth));
     setEndDate(toInputDate(today));
   }, []);

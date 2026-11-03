@@ -8,7 +8,7 @@ export default function ActionNavbar({ searchQuery, onSearchChange, onDateRangeC
   lastMonth.setMonth(today.getMonth() - 1);
   const endOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
 
-  const formatForInput = (date) => date.toISOString().split('T')[0];
+  const formatForInput = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
   const [startDate, setStartDate] = useState(formatForInput(lastMonth));
   const [endDate, setEndDate] = useState(formatForInput(endOfNextMonth));
