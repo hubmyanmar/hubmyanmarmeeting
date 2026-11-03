@@ -79,10 +79,10 @@ export default function MyMeetings({ bookedMeetings = [] }) {
 
     const meetingTypeVal = (b.meetingType || b.meeting_type || '').trim().toLowerCase();
     
-    let roomName = 'Physical Room';
+    let roomName = 'No Room';
     
     if (b.room && typeof b.room === 'object') {
-      roomName = b.room.name || b.room.room_name || 'Physical Room';
+      roomName = b.room.name || b.room.room_name || 'No Room';
     } else if (b.roomName) {
       roomName = b.roomName;
     } else if (b.room_name) {
@@ -90,14 +90,14 @@ export default function MyMeetings({ bookedMeetings = [] }) {
     } else if (typeof b.room === 'string' && b.room.trim() !== '' && isNaN(b.room)) {
       roomName = b.room;
     } else if (b.meetingRoom && typeof b.meetingRoom === 'object') {
-      roomName = b.meetingRoom.name || 'Physical Room';
+      roomName = b.meetingRoom.name || 'No Room';
     } else if (b.meeting_room && typeof b.meeting_room === 'object') {
-      roomName = b.meeting_room.name || 'Physical Room';
+      roomName = b.meeting_room.name || 'No Room';
     } else if (typeof b.meeting_room === 'string' && b.meeting_room.trim() !== '') {
       roomName = b.meeting_room;
     }
 
-    if (meetingTypeVal !== 'online' && roomName === 'Physical Room' && b.room_id) {
+    if (meetingTypeVal !== 'online' && roomName === 'No Room' && b.room_id) {
       roomName = `Room ID: ${b.room_id}`;
     }
 

@@ -120,7 +120,7 @@ const sanitizeMeetingData = (meeting) => {
   const lowerPlatform = platform.toLowerCase();
   const isOnline = !!link || lowerPlatform.includes('zoom') || lowerPlatform.includes('zoho') || lowerPlatform.includes('online') || lowerLink.includes('zoom') || lowerLink.includes('zoho');
   const rawRoom = formatDisplayValue(meeting.room || meeting.meeting_room || meeting.room_name);
-  const roomName = isOnline ? 'Online Meeting' : (rawRoom || 'Main Room');
+  const roomName = isOnline ? 'Online Meeting' : (rawRoom || 'No Room');
   const realId = meeting.id || meeting._id || meeting.meeting_id || meeting.meetingId;
   const startTimeRaw = meeting.startTime || meeting.start_time || meeting.time || meeting.start || meeting.meeting_time || meeting.schedule_time || meeting.from_time || '';
   const titleStr = formatDisplayValue(meeting.title || meeting.meeting_title || meeting.name) || 'Untitled Meeting';

@@ -39,7 +39,7 @@ export default function MeetingHeader({
     : safeDateStr || 'Today';
 
   const safeTitle = formatDisplayValue(title, 'Untitled Meeting');
-  const safeRoom = formatDisplayValue(room, 'Main Room');
+  const safeRoom = formatDisplayValue(room, 'No Room');
   const safeStartTime = formatDisplayValue(startTime);
   const safeEndTime = formatDisplayValue(endTime);
 

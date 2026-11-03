@@ -96,7 +96,7 @@ export default function Reports({ bookedMeetings = [], meetingSessions = {} }) {
     const formatted = (Array.isArray(bookedMeetings) ? bookedMeetings : []).map((m) => ({
       ...m,
       title: formatDisplayValue(m.title || m.meeting_title || m.name, 'Untitled Meeting'),
-      room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'Main Room'),
+      room: formatDisplayValue(m.room || m.meeting_room || m.room_name, 'No Room'),
       date: formatDisplayValue(m.meeting_date || m.date || m.startTime || m.startedAt)
     }));
 
