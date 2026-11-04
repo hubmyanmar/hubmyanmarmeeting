@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import SettingsLayout from './SettingsLayout';
 import { settingsPanels } from './SettingsMenu';
 import ProfilePanel from './ProfilePanel';
@@ -22,10 +23,21 @@ const panelComponents = {
 };
 
 export default function Settings({ currentUser }) {
-  const [activePanel, setActivePanel] = useState('booking-rules');
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const location = useLocation();
+  const { profileImage, setProfileImage } = useOutletContext();
+  const openProfileFromNavigation = location.state?.settingsPanel === 'profile';
+  const [activePanel, setActivePanel] = useState(() => openProfileFromNavigation ? 'profile' : 'booking-rules');
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(openProfileFromNavigation);
   const selected = settingsPanels.find((panel) => panel.id === activePanel);
   const Panel = panelComponents[activePanel];
+
+  useEffect(() => {
+    if (location.state?.settingsPanel === 'profile') {
+      setActivePanel('profile');
+      setMobilePanelOpen(true);
+    }
+  }, [location.key, location.state]);
+
   const selectPanel = (panelId) => {
     if (panelId) setActivePanel(panelId);
     setMobilePanelOpen(Boolean(panelId));
@@ -40,7 +52,9 @@ export default function Settings({ currentUser }) {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">Manage your account and meeting workspace preferences.</p>
         </header>
         <SettingsLayout currentUser={currentUser} activePanel={activePanel} mobilePanelOpen={mobilePanelOpen} onSelect={selectPanel}>
-          {Panel && selected && <Panel currentUser={currentUser} />}
+          {Panel && selected && (Panel === ProfilePanel
+            ? <Panel currentUser={currentUser} profileImage={profileImage} setProfileImage={setProfileImage} />
+            : <Panel currentUser={currentUser} />)}
         </SettingsLayout>
       </div>
     </div>

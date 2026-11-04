@@ -34,7 +34,7 @@ export default function Dashboard({ currentUser, userResolved }) {
         <Header user={user} profileImage={profileImage} setProfileImage={setProfileImage} />
 
         <div className="flex-1 overflow-auto p-8 custom-scrollbar">
-          <Outlet />
+          <Outlet context={{ profileImage, setProfileImage }} />
         </div>
       </main>
     </div>
