@@ -10,7 +10,7 @@ import MeetingRecords from './components/MeetingRecords';
 import ActionItem from './components/ActionItem';
 import Calendar from './components/Calendar';
 import Reports from './components/Reports';
-import Settings from './components/Settings';
+import Settings from './components/Settings/Settings';
 import LiveMeeting from './pages/LiveMeeting';
 import OverdueActionsPage from './pages/OverdueActionsPage';
 import { RecordingProvider } from './context/RecordingContext';
