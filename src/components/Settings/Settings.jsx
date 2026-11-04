@@ -51,7 +51,7 @@ export default function Settings({ currentUser }) {
           <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-[30px]">Settings</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">Manage your account and meeting workspace preferences.</p>
         </header>
-        <SettingsLayout currentUser={currentUser} activePanel={activePanel} mobilePanelOpen={mobilePanelOpen} onSelect={selectPanel}>
+        <SettingsLayout currentUser={currentUser} profileImage={profileImage} activePanel={activePanel} mobilePanelOpen={mobilePanelOpen} onSelect={selectPanel}>
           {Panel && selected && (Panel === ProfilePanel
             ? <Panel currentUser={currentUser} profileImage={profileImage} setProfileImage={setProfileImage} />
             : <Panel currentUser={currentUser} />)}
