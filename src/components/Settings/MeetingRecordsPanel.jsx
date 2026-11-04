@@ -1,18 +1,65 @@
 import React from 'react';
-import { FileText, Search, Download } from 'lucide-react';
+import { FileText, HardDrive, CalendarClock, Music2 } from 'lucide-react';
 import SettingsPanelHeader from './SettingsPanelHeader';
-import SettingsBadge from './SettingsBadge';
+import SettingsField from './SettingsField';
 
-const records = [
-  { title: 'Weekly Team Sync', date: 'Nov 3, 2026', organizer: 'Naing Lin Oo', status: 'Ready' },
-  { title: 'Product Roadmap Review', date: 'Oct 30, 2026', organizer: 'May Thu', status: 'Ready' },
-  { title: 'Client Partnership Discussion', date: 'Oct 28, 2026', organizer: 'Aung Kyaw', status: 'Processing' },
-];
+function SettingsRow({ icon: Icon, label, description, children }) {
+  return (
+    <div className="grid gap-2 border-b border-slate-100 py-4 sm:gap-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-center">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold leading-5 text-slate-800">{label}</h3>
+          {description && <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>}
+        </div>
+      </div>
+      <div className="min-w-0 text-sm font-medium leading-5 text-slate-700">{children}</div>
+    </div>
+  );
+}
 
 export default function MeetingRecordsPanel() {
-  return <>
-    <SettingsPanelHeader title="Meeting records" description="Browse meeting recordings, transcripts, and summaries." icon={FileText} badge="Admin only" />
-    <label className="relative mb-4 block"><Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="search" aria-label="Search meeting records" placeholder="Search meeting records" className="min-h-11 w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-[#564BFF]" /></label>
-    <div className="overflow-hidden rounded-xl border border-slate-200"><div className="divide-y divide-slate-100">{records.map((record) => <article key={record.title} className="flex flex-wrap items-center gap-3 p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#F0EFFF] text-[#564BFF]"><FileText className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="font-semibold text-slate-900">{record.title}</h3><p className="mt-1 text-sm text-slate-500">{record.date} · {record.organizer}</p></div><SettingsBadge>{record.status}</SettingsBadge><button type="button" aria-label={`Download ${record.title}`} className="grid h-10 w-10 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"><Download className="h-4 w-4" /></button></article>)}</div></div>
-  </>;
+  return (
+    <>
+      <SettingsPanelHeader
+        title="Meeting records"
+        description="Storage and retention of meeting recordings."
+        icon={FileText}
+        badge="Admin only"
+      />
+
+      <div className="divide-y divide-slate-100">
+        <SettingsRow icon={HardDrive} label="Storage used">
+          <span>1.2 GB of recordings</span>
+        </SettingsRow>
+
+        <SettingsRow
+          icon={CalendarClock}
+          label="Auto-delete recordings after"
+          description="Older recordings are deleted automatically."
+        >
+          <SettingsField
+            label="Retention period"
+            value="90 days"
+            options={['30 days', '90 days', '180 days', 'Never']}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          icon={Music2}
+          label="Apply to"
+          description="Summaries and action items are kept."
+        >
+          <span>Recordings only (audio files)</span>
+        </SettingsRow>
+      </div>
+
+      <button
+        type="button"
+        className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce]"
+      >
+        Save changes
+      </button>
+    </>
+  );
 }

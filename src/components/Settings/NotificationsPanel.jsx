@@ -4,14 +4,34 @@ import SettingsPanelHeader from './SettingsPanelHeader';
 import SettingsSwitch from './SettingsSwitch';
 
 export default function NotificationsPanel() {
-  return <>
-    <SettingsPanelHeader title="Notifications" description="Choose which updates you receive." icon={Bell} />
-    <div className="space-y-3">
-      <SettingsSwitch label="Meeting updates" description="Get notified when a meeting is booked, changed, or cancelled." defaultChecked />
-      <SettingsSwitch label="Approval requests" description="Receive updates when a meeting request needs your attention." defaultChecked />
-      <SettingsSwitch label="Meeting summaries" description="Get notified when a meeting summary is ready." />
-      <SettingsSwitch label="Email notifications" description="Receive workspace updates by email." defaultChecked />
-    </div>
-    <button type="button" className="mt-5 min-h-12 w-full rounded-xl bg-[#564BFF] px-4 py-3 text-sm font-semibold text-white sm:w-auto">Save changes</button>
-  </>;
+  return (
+    <>
+      <SettingsPanelHeader
+        title="Notifications"
+        description="How you personally get notified."
+        icon={Bell}
+      />
+
+      <div className="space-y-3">
+        <SettingsSwitch
+          label="Email notifications"
+          description="Get meeting updates by email."
+          defaultChecked
+        />
+        <SettingsSwitch
+          label="In-app notifications"
+          description="Show alerts inside the app."
+          defaultChecked
+        />
+        <SettingsSwitch
+          label="Zoho Cliq notifications"
+          description="Send alerts to Zoho Cliq."
+        />
+      </div>
+
+      <p className="mt-4 text-sm leading-5 text-slate-500">
+        These are your personal settings — they do not change other people's notifications.
+      </p>
+    </>
+  );
 }
