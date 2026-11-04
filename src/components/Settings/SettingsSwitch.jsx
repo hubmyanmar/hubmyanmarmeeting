@@ -11,9 +11,9 @@ export default function SettingsSwitch({ label, description, defaultChecked = fa
         aria-checked={checked}
         aria-label={label}
         onClick={() => setChecked((value) => !value)}
-        className={`relative mt-0.5 inline-flex h-11 w-12 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${checked ? 'bg-[#564BFF]' : 'bg-slate-300'}`}
+        className={`relative mt-0.5 inline-flex h-7 w-[52px] shrink-0 items-center rounded-full px-[3px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${checked ? 'bg-[#564BFF]' : 'bg-[#CBD5E1]'}`}
       >
-        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-1'}`} />
+        <span className={`inline-block h-[22px] w-[22px] transform rounded-full bg-white shadow-sm transition-transform duration-200 ${checked ? 'translate-x-6' : 'translate-x-0'}`} />
       </button>
       <div className="min-w-0 pt-0.5">
         <h3 className="text-sm font-semibold leading-5 text-slate-900">{label}</h3>
