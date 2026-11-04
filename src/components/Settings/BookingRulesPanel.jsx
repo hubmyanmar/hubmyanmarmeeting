@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Settings as SettingsIcon } from 'lucide-react';
 import SettingsPanelHeader from './SettingsPanelHeader';
 import SettingsSwitch from './SettingsSwitch';
 import SettingsField from './SettingsField';
 import SettingsBadge from './SettingsBadge';
 
-function ChoicePill({ children }) {
+function ChoicePill({ label, selected, onClick }) {
   return (
-    <span className="inline-flex min-h-10 items-center rounded-full border border-[#D8D4FF] bg-[#F0EFFF] px-3 py-2 text-sm font-semibold text-[#564BFF]">
-      {children}
-    </span>
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`inline-flex min-h-10 items-center rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${selected ? 'border-[#D8D4FF] bg-[#F0EFFF] text-[#564BFF]' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
+    >
+      {label}{selected ? ' ✓' : ''}
+    </button>
   );
 }
 
@@ -26,6 +31,18 @@ function RuleRow({ label, description, children }) {
 }
 
 export default function BookingRulesPanel() {
+  const [selectedPills, setSelectedPills] = useState({
+    admin: true,
+    approver: true,
+    email: true,
+    inApp: true,
+    zohoCliq: true,
+  });
+
+  const togglePill = (key) => {
+    setSelectedPills((current) => ({ ...current, [key]: !current[key] }));
+  };
+
   return (
     <>
       <SettingsPanelHeader
@@ -51,18 +68,18 @@ export default function BookingRulesPanel() {
           </div>
         </RuleRow>
 
-        <RuleRow label="Who can approve meetings" description="Fixed — no choice needed here.">
+        <RuleRow label="Who can approve meetings">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill>Admin ✓</ChoicePill>
-            <ChoicePill>Approver ✓</ChoicePill>
+            <ChoicePill label="Admin" selected={selectedPills.admin} onClick={() => togglePill('admin')} />
+            <ChoicePill label="Approver" selected={selectedPills.approver} onClick={() => togglePill('approver')} />
           </div>
         </RuleRow>
 
         <RuleRow label="Notification channel">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill>Email ✓</ChoicePill>
-            <ChoicePill>In-app ✓</ChoicePill>
-            <ChoicePill>Zoho Cliq ✓</ChoicePill>
+            <ChoicePill label="Email" selected={selectedPills.email} onClick={() => togglePill('email')} />
+            <ChoicePill label="In-app" selected={selectedPills.inApp} onClick={() => togglePill('inApp')} />
+            <ChoicePill label="Zoho Cliq" selected={selectedPills.zohoCliq} onClick={() => togglePill('zohoCliq')} />
           </div>
         </RuleRow>
 
