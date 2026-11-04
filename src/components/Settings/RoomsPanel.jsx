@@ -5,9 +5,10 @@ import SettingsField from './SettingsField';
 import SettingsBadge from './SettingsBadge';
 
 const initialRooms = [
-  { id: 1, name: 'MD Room', capacity: 10 },
-  { id: 2, name: 'Room 1', capacity: 6 },
-  { id: 3, name: 'Room 2', capacity: 4 },
+  { id: 1, name: 'MD Room', capacity: 8, devices: ['Projector 4K', 'Smart TV', 'Whiteboard'] },
+  { id: 2, name: 'Bagan Room', capacity: 12, devices: ['Smart TV', 'Mic System', 'Video Conference'] },
+  { id: 3, name: 'Konebaung Room', capacity: 6, devices: ['TV Screen', 'Whiteboard'] },
+  { id: 4, name: 'BOD Home', capacity: 20, devices: ['Projector 4K', 'Smart TV', 'Premium Mic', 'Speakers', 'Whiteboard'] },
 ];
 
 export default function RoomsPanel() {
@@ -36,15 +37,16 @@ export default function RoomsPanel() {
 
   const saveRoom = (event) => {
     event.preventDefault();
-    const [nameInput, capacityInput] = event.currentTarget.querySelectorAll('input');
+    const [nameInput, capacityInput, devicesInput] = event.currentTarget.querySelectorAll('input');
     const name = String(nameInput?.value || '').trim();
     const capacity = Number(capacityInput?.value);
+    const devices = String(devicesInput?.value || '').split(',').map((device) => device.trim()).filter(Boolean);
     if (!name || !Number.isFinite(capacity) || capacity < 1) return;
 
     if (editingRoomId !== null) {
-      setRooms((current) => current.map((room) => room.id === editingRoomId ? { ...room, name, capacity } : room));
+      setRooms((current) => current.map((room) => room.id === editingRoomId ? { ...room, name, capacity, devices } : room));
     } else {
-      setRooms((current) => [...current, { id: Date.now(), name, capacity }]);
+      setRooms((current) => [...current, { id: Date.now(), name, capacity, devices }]);
     }
     closeForm();
   };
@@ -68,6 +70,11 @@ export default function RoomsPanel() {
               <div className="min-w-0 flex-1">
                 <h3 className="break-words font-semibold text-slate-900">{room.name}</h3>
                 <SettingsBadge>Capacity {room.capacity}</SettingsBadge>
+                {room.devices?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {room.devices.map((device) => <SettingsBadge key={device}>{device}</SettingsBadge>)}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -103,6 +110,9 @@ export default function RoomsPanel() {
           <div className="grid gap-4 sm:grid-cols-2">
             <SettingsField label="Room name" value={editingRoom?.name || ''} placeholder="Enter room name" />
             <SettingsField label="Capacity" type="number" value={editingRoom?.capacity ?? ''} placeholder="Enter capacity" />
+            <div className="sm:col-span-2">
+              <SettingsField label="Devices" value={editingRoom?.devices?.join(', ') || ''} placeholder="Projector 4K, Smart TV, Whiteboard" />
+            </div>
           </div>
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={closeForm} className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 sm:w-auto">Cancel</button>
