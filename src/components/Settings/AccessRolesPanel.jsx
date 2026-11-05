@@ -1,15 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Users } from 'lucide-react';
 import SettingsPanelHeader from './SettingsPanelHeader';
-
-const initialMembers = [
-  { id: 1, name: 'Ei Ei San', email: 'lilylucy2004@gmail.com', role: 'Admin', active: true, you: true },
-  { id: 2, name: 'Ko Kyaw Myint', email: 'ko.kyaw.myint.20261102@example.com', role: 'Member', active: true },
-  { id: 3, name: 'Department Head (sample)', email: 'head@example.com', role: 'Approver', active: true },
-  { id: 4, name: 'Old Staff (sample)', email: 'old@example.com', role: 'Member', active: false },
-];
+import api from '../../api';
 
 const roles = ['Admin', 'Approver', 'Member'];
+const displayRole = (role) => role ? `${role.charAt(0).toUpperCase()}${role.slice(1)}` : '';
 
 function initials(name) {
   return name
@@ -22,9 +17,10 @@ function initials(name) {
     .toUpperCase();
 }
 
-export default function AccessRolesPanel() {
-  const [members, setMembers] = useState(initialMembers);
+export default function AccessRolesPanel({ currentUser }) {
+  const [members, setMembers] = useState([]);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState('');
   const activeAdminCount = members.filter((member) => member.active && member.role === 'Admin').length;
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -36,6 +32,42 @@ export default function AccessRolesPanel() {
     setMembers((current) => current.map((member) => member.id === memberId ? { ...member, ...update } : member));
   };
 
+  useEffect(() => {
+    const loadMembers = async () => {
+      try {
+        const { data: users } = await api.get('/users/');
+        setMembers(users.map((user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: displayRole(user.role),
+          active: true,
+          you: String(user.id) === String(currentUser?.id),
+        })));
+      } catch (loadError) {
+        setError(loadError.response?.data?.detail || loadError.message || 'Unable to load users.');
+      }
+    };
+
+    loadMembers();
+  }, [currentUser?.id]);
+
+  const handleRoleChange = async (member, nextRole) => {
+    const previousRole = member.role;
+    setError('');
+    updateMember(member.id, { role: nextRole });
+
+    try {
+      const { data: updatedUser } = await api.patch(`/users/${member.id}/role`, { role: nextRole.toLowerCase() });
+      setMembers((current) => current.map((currentMember) => currentMember.id === member.id
+        ? { ...currentMember, ...updatedUser, role: displayRole(updatedUser.role) }
+        : currentMember));
+    } catch (roleError) {
+      updateMember(member.id, { role: previousRole });
+      setError(roleError.response?.data?.detail || roleError.message || 'Unable to update role.');
+    }
+  };
+
   return (
     <>
       <SettingsPanelHeader
@@ -44,6 +76,8 @@ export default function AccessRolesPanel() {
         icon={Users}
         badge="Admin only"
       />
+
+      {error && <p role="alert" className="mb-4 text-sm text-rose-600">{error}</p>}
 
       <label className="relative mb-4 block">
         <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -80,7 +114,7 @@ export default function AccessRolesPanel() {
                       <select
                         value={member.role}
                         disabled={isLastActiveAdmin}
-                        onChange={(event) => updateMember(member.id, { role: event.target.value })}
+                        onChange={(event) => handleRoleChange(member, event.target.value)}
                         aria-label={`Role for ${member.name}`}
                         className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-[#564BFF] focus:ring-1 focus:ring-[#564BFF] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                       >
