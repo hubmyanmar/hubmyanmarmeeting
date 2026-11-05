@@ -17,6 +17,10 @@ export default function Dashboard({ currentUser, userResolved }) {
     setUser(currentUser);
   }, [currentUser]);
 
+  useEffect(() => {
+    if (user?.image) setProfileImage(user.image);
+  }, [user?.image]);
+
   const [profileImage, setProfileImage] = useState(() => {
     if (user?.image) return user.image;
     return null;
