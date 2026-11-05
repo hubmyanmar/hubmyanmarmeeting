@@ -18,7 +18,8 @@ function SettingsRow({ icon: Icon, label, description, children }) {
   );
 }
 
-export default function MeetingRecordsPanel() {
+export default function MeetingRecordsPanel({ currentUser }) {
+  const disabled = currentUser?.role !== 'admin';
   return (
     <>
       <SettingsPanelHeader
@@ -42,6 +43,7 @@ export default function MeetingRecordsPanel() {
             label="Retention period"
             value="90 days"
             options={['30 days', '90 days', '180 days', 'Never']}
+            disabled={disabled}
           />
         </SettingsRow>
 
@@ -56,7 +58,8 @@ export default function MeetingRecordsPanel() {
 
       <button
         type="button"
-        className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce]"
+        disabled={disabled}
+        className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce] disabled:cursor-not-allowed disabled:opacity-50"
       >
         Save changes
       </button>

@@ -7,7 +7,8 @@ const initialMeetings = [
   { id: 2, title: 'Client Call', organizer: 'Ko Kyaw Myint', dateTime: 'Nov 6, 14:00 – 15:00', location: 'Online' },
 ];
 
-export default function ApprovalsPanel() {
+export default function ApprovalsPanel({ currentUser }) {
+  const disabled = currentUser?.role !== 'admin';
   const [meetings, setMeetings] = useState(initialMeetings);
   const [notice, setNotice] = useState('');
 
@@ -53,15 +54,17 @@ export default function ApprovalsPanel() {
               <div className="flex w-full gap-2">
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={() => handleDecision(meeting.id, true)}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#564BFF] px-3 text-sm font-semibold text-white hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#564BFF] px-3 text-sm font-semibold text-white hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check aria-hidden="true" className="h-4 w-4" /> Approve
                 </button>
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={() => handleDecision(meeting.id, false)}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-300 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-rose-300 px-3 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <X aria-hidden="true" className="h-4 w-4" /> Reject
                 </button>

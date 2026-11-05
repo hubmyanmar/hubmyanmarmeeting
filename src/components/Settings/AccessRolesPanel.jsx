@@ -21,6 +21,7 @@ export default function AccessRolesPanel({ currentUser }) {
   const [members, setMembers] = useState([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
+  const isAdmin = currentUser?.role === 'admin';
   const activeAdminCount = members.filter((member) => member.active && member.role === 'Admin').length;
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -41,7 +42,7 @@ export default function AccessRolesPanel({ currentUser }) {
           name: user.name,
           email: user.email,
           role: displayRole(user.role),
-          active: true,
+          active: user.is_active === undefined ? true : user.is_active,
           you: String(user.id) === String(currentUser?.id),
         })));
       } catch (loadError) {
@@ -65,6 +66,23 @@ export default function AccessRolesPanel({ currentUser }) {
     } catch (roleError) {
       updateMember(member.id, { role: previousRole });
       setError(roleError.response?.data?.detail || roleError.message || 'Unable to update role.');
+    }
+  };
+
+  const handleActiveChange = async (member) => {
+    const previousActive = member.active;
+    const nextActive = !member.active;
+    setError('');
+    updateMember(member.id, { active: nextActive });
+
+    try {
+      const { data: updatedUser } = await api.patch(`/users/${member.id}/active`, { is_active: nextActive });
+      setMembers((current) => current.map((currentMember) => currentMember.id === member.id
+        ? { ...currentMember, ...updatedUser, active: updatedUser.is_active }
+        : currentMember));
+    } catch (activeError) {
+      updateMember(member.id, { active: previousActive });
+      setError(activeError.response?.data?.detail || activeError.message || 'Unable to update active status.');
     }
   };
 
@@ -113,10 +131,10 @@ export default function AccessRolesPanel({ currentUser }) {
                       Role
                       <select
                         value={member.role}
-                        disabled={isLastActiveAdmin}
+                        disabled={!isAdmin || isLastActiveAdmin}
                         onChange={(event) => handleRoleChange(member, event.target.value)}
                         aria-label={`Role for ${member.name}`}
-                        className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-[#564BFF] focus:ring-1 focus:ring-[#564BFF] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                        className="mt-1 block min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-[#564BFF] focus:ring-1 focus:ring-[#564BFF] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-50"
                       >
                         {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                       </select>
@@ -129,9 +147,9 @@ export default function AccessRolesPanel({ currentUser }) {
                         : <span className="inline-flex min-h-7 items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold leading-4 text-slate-600">Inactive</span>}
                       <button
                         type="button"
-                        disabled={isLastActiveAdmin}
-                        onClick={() => updateMember(member.id, { active: !member.active })}
-                        className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[#564BFF] hover:bg-[#F8F7FF] disabled:cursor-not-allowed disabled:text-slate-400"
+                        disabled={!isAdmin || isLastActiveAdmin}
+                        onClick={() => handleActiveChange(member)}
+                        className="min-h-11 rounded-lg px-3 text-sm font-semibold text-[#564BFF] hover:bg-[#F8F7FF] disabled:cursor-not-allowed disabled:text-slate-400 disabled:opacity-50"
                       >
                         {member.active ? 'Make inactive' : 'Activate'}
                       </button>

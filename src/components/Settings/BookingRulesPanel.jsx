@@ -5,13 +5,14 @@ import SettingsSwitch from './SettingsSwitch';
 import SettingsField from './SettingsField';
 import SettingsBadge from './SettingsBadge';
 
-function ChoicePill({ label, selected, onClick }) {
+function ChoicePill({ label, selected, onClick, disabled = false }) {
   return (
     <button
       type="button"
       aria-pressed={selected}
+      disabled={disabled}
       onClick={onClick}
-      className={`inline-flex min-h-10 items-center rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${selected ? 'border-[#D8D4FF] bg-[#F0EFFF] text-[#564BFF]' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
+      className={`inline-flex min-h-10 items-center rounded-full border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${selected ? 'border-[#D8D4FF] bg-[#F0EFFF] text-[#564BFF]' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
       {label}{selected ? ' ✓' : ''}
     </button>
@@ -30,7 +31,8 @@ function RuleRow({ label, description, children }) {
   );
 }
 
-export default function BookingRulesPanel() {
+export default function BookingRulesPanel({ currentUser }) {
+  const disabled = currentUser?.role !== 'admin';
   const [selectedPills, setSelectedPills] = useState({
     admin: true,
     approver: true,
@@ -58,28 +60,29 @@ export default function BookingRulesPanel() {
             label="Admin approval required before calendar blocking"
             defaultChecked
             description="Meetings must be approved by an admin before they block the calendar."
+            disabled={disabled}
           />
         </div>
 
         <RuleRow label="Working hours">
           <div className="grid grid-cols-2 gap-3">
-            <SettingsField label="Start time" type="time" value="09:00" />
-            <SettingsField label="End time" type="time" value="18:00" />
+            <SettingsField label="Start time" type="time" value="09:00" disabled={disabled} />
+            <SettingsField label="End time" type="time" value="18:00" disabled={disabled} />
           </div>
         </RuleRow>
 
         <RuleRow label="Who can approve meetings">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill label="Admin" selected={selectedPills.admin} onClick={() => togglePill('admin')} />
-            <ChoicePill label="Approver" selected={selectedPills.approver} onClick={() => togglePill('approver')} />
+            <ChoicePill label="Admin" selected={selectedPills.admin} onClick={() => togglePill('admin')} disabled={disabled} />
+            <ChoicePill label="Approver" selected={selectedPills.approver} onClick={() => togglePill('approver')} disabled={disabled} />
           </div>
         </RuleRow>
 
         <RuleRow label="Notification channel">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill label="Email" selected={selectedPills.email} onClick={() => togglePill('email')} />
-            <ChoicePill label="In-app" selected={selectedPills.inApp} onClick={() => togglePill('inApp')} />
-            <ChoicePill label="Zoho Cliq" selected={selectedPills.zohoCliq} onClick={() => togglePill('zohoCliq')} />
+            <ChoicePill label="Email" selected={selectedPills.email} onClick={() => togglePill('email')} disabled={disabled} />
+            <ChoicePill label="In-app" selected={selectedPills.inApp} onClick={() => togglePill('inApp')} disabled={disabled} />
+            <ChoicePill label="Zoho Cliq" selected={selectedPills.zohoCliq} onClick={() => togglePill('zohoCliq')} disabled={disabled} />
           </div>
         </RuleRow>
 
@@ -90,7 +93,8 @@ export default function BookingRulesPanel() {
 
       <button
         type="button"
-        className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce]"
+        disabled={disabled}
+        className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce] disabled:cursor-not-allowed disabled:opacity-50"
       >
         Save changes
       </button>
