@@ -41,7 +41,6 @@ export default function ProfilePanel({ currentUser, profileImage, setProfileImag
     try {
       if (stagedPhoto) {
         setProfileImage(stagedPhoto);
-        localStorage.setItem('savedProfileImage', stagedPhoto);
         await api.patch('/auth/update-image', { image: stagedPhoto });
         setStagedPhoto(null);
       }

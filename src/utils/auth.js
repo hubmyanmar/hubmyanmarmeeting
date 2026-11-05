@@ -21,5 +21,5 @@ export const isAccessTokenValid = (token) => {
 };
 
 export const clearAuthSession = () => {
-  ['access_token', 'currentUser', 'authUser', 'savedProfileImage'].forEach((key) => localStorage.removeItem(key));
+  ['access_token', 'currentUser', 'authUser'].forEach((key) => localStorage.removeItem(key));
 };

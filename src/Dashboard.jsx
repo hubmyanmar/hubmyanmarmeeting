@@ -19,7 +19,7 @@ export default function Dashboard({ currentUser, userResolved }) {
 
   const [profileImage, setProfileImage] = useState(() => {
     if (user?.image) return user.image;
-    return localStorage.getItem('savedProfileImage') || null;
+    return null;
   });
 
   if (!hasValidToken) return <Navigate to="/" replace state={{ from: location }} />;

@@ -64,6 +64,12 @@ export default function App() {
         .filter((claim) => tokenPayload[claim] !== undefined && tokenPayload[claim] !== null)
         .map((claim) => [claim, tokenPayload[claim]])),
     };
+    try {
+      const { data: userRecord } = await api.get(`/users/${tokenUserId}`);
+      if (userRecord?.image !== undefined) tokenUser.image = userRecord.image;
+    } catch (error) {
+      console.error('Error resolving current user image:', error);
+    }
     setCurrentUser(tokenUser);
 
     if (hasProfileClaims) {
