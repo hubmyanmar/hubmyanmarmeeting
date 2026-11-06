@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 
-export default function SettingsSwitch({ label, description, defaultChecked = false, disabled = false }) {
-  const [checked, setChecked] = useState(defaultChecked);
+export default function SettingsSwitch({ label, description, defaultChecked = false, checked: controlledChecked, onChange, disabled = false }) {
+  const [internalChecked, setInternalChecked] = useState(defaultChecked);
+  const checked = controlledChecked !== undefined ? controlledChecked : internalChecked;
+
+  const handleClick = () => {
+    if (controlledChecked !== undefined) {
+      onChange?.(!controlledChecked);
+    } else {
+      setInternalChecked((value) => !value);
+    }
+  };
 
   return (
     <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
@@ -11,7 +20,7 @@ export default function SettingsSwitch({ label, description, defaultChecked = fa
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}
-        onClick={() => setChecked((value) => !value)}
+        onClick={handleClick}
         className={`relative mt-0.5 inline-flex h-7 w-[52px] shrink-0 items-center rounded-full px-[3px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 ${checked ? 'bg-[#564BFF]' : 'bg-[#CBD5E1]'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <span className={`inline-block h-[22px] w-[22px] transform rounded-full bg-white shadow-sm transition-transform duration-200 ${checked ? 'translate-x-6' : 'translate-x-0'}`} />

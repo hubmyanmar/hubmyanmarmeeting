@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Settings as SettingsIcon } from 'lucide-react';
 import SettingsPanelHeader from './SettingsPanelHeader';
 import SettingsSwitch from './SettingsSwitch';
 import SettingsField from './SettingsField';
 import SettingsBadge from './SettingsBadge';
+import api from '../../api';
 
 function ChoicePill({ label, selected, onClick, disabled = false }) {
   return (
@@ -33,16 +34,66 @@ function RuleRow({ label, description, children }) {
 
 export default function BookingRulesPanel({ currentUser }) {
   const disabled = currentUser?.role !== 'admin';
-  const [selectedPills, setSelectedPills] = useState({
-    admin: true,
-    approver: true,
+  const [approvalRequired, setApprovalRequired] = useState(true);
+  const [workStart, setWorkStart] = useState('09:00');
+  const [workEnd, setWorkEnd] = useState('18:00');
+  const [channels, setChannels] = useState({
     email: true,
     inApp: true,
     zohoCliq: true,
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const togglePill = (key) => {
-    setSelectedPills((current) => ({ ...current, [key]: !current[key] }));
+    setChannels((current) => ({ ...current, [key]: !current[key] }));
+    setSaved(false);
+  };
+
+  useEffect(() => {
+    const loadRules = async () => {
+      try {
+        const { data: rules } = await api.get('/settings/booking-rules');
+        setApprovalRequired(rules.approval_required);
+        setWorkStart(rules.work_start);
+        setWorkEnd(rules.work_end);
+        setChannels({
+          email: rules.notify_email,
+          inApp: rules.notify_in_app,
+          zohoCliq: rules.notify_zoho_cliq,
+        });
+      } catch (loadError) {
+        setError(loadError.response?.data?.detail || loadError.message || 'Unable to load booking rules.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRules();
+  }, []);
+
+  const saveRules = async () => {
+    setSaving(true);
+    setError('');
+    setSaved(false);
+    try {
+      await api.put('/settings/booking-rules', {
+        approval_required: approvalRequired,
+        work_start: workStart,
+        work_end: workEnd,
+        notify_email: channels.email,
+        notify_in_app: channels.inApp,
+        notify_zoho_cliq: channels.zohoCliq,
+      });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (saveError) {
+      setError(saveError.response?.data?.detail || saveError.message || 'Unable to save booking rules.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -54,11 +105,15 @@ export default function BookingRulesPanel({ currentUser }) {
         badge="Admin only"
       />
 
+      {error && <p role="alert" className="mb-4 text-sm text-rose-600">{error}</p>}
+      {saved && <p role="status" className="mb-4 text-sm text-emerald-700">Saved</p>}
+
       <div className="divide-y divide-slate-100">
         <div className="border-b border-slate-100 py-4">
           <SettingsSwitch
             label="Admin approval required before calendar blocking"
-            defaultChecked
+            checked={approvalRequired}
+            onChange={(value) => { setApprovalRequired(value); setSaved(false); }}
             description="Meetings must be approved by an admin before they block the calendar."
             disabled={disabled}
           />
@@ -66,23 +121,23 @@ export default function BookingRulesPanel({ currentUser }) {
 
         <RuleRow label="Working hours">
           <div className="grid grid-cols-2 gap-3">
-            <SettingsField label="Start time" type="time" value="09:00" disabled={disabled} />
-            <SettingsField label="End time" type="time" value="18:00" disabled={disabled} />
+            <SettingsField label="Start time" type="time" value={workStart} onChange={(event) => { setWorkStart(event.target.value); setSaved(false); }} disabled={disabled} />
+            <SettingsField label="End time" type="time" value={workEnd} onChange={(event) => { setWorkEnd(event.target.value); setSaved(false); }} disabled={disabled} />
           </div>
         </RuleRow>
 
         <RuleRow label="Who can approve meetings">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill label="Admin" selected={selectedPills.admin} onClick={() => togglePill('admin')} disabled={disabled} />
-            <ChoicePill label="Approver" selected={selectedPills.approver} onClick={() => togglePill('approver')} disabled={disabled} />
+            <ChoicePill label="Admin" selected disabled />
+            <ChoicePill label="Approver" selected disabled />
           </div>
         </RuleRow>
 
         <RuleRow label="Notification channel">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill label="Email" selected={selectedPills.email} onClick={() => togglePill('email')} disabled={disabled} />
-            <ChoicePill label="In-app" selected={selectedPills.inApp} onClick={() => togglePill('inApp')} disabled={disabled} />
-            <ChoicePill label="Zoho Cliq" selected={selectedPills.zohoCliq} onClick={() => togglePill('zohoCliq')} disabled={disabled} />
+            <ChoicePill label="Email" selected={channels.email} onClick={() => togglePill('email')} disabled={disabled} />
+            <ChoicePill label="In-app" selected={channels.inApp} onClick={() => togglePill('inApp')} disabled={disabled} />
+            <ChoicePill label="Zoho Cliq" selected={channels.zohoCliq} onClick={() => togglePill('zohoCliq')} disabled={disabled} />
           </div>
         </RuleRow>
 
@@ -93,7 +148,8 @@ export default function BookingRulesPanel({ currentUser }) {
 
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || loading || saving}
+        onClick={saveRules}
         className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce] disabled:cursor-not-allowed disabled:opacity-50"
       >
         Save changes
