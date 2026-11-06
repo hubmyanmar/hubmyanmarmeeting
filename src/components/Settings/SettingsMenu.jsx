@@ -5,7 +5,7 @@ import SettingsBadge from './SettingsBadge';
 export const settingsPanels = [
   { id: 'profile', label: 'Profile', group: 'Account', icon: UserRound },
   { id: 'booking-rules', label: 'Booking rules', group: 'Workspace', icon: SettingsIcon, admin: true },
-  { id: 'rooms', label: 'Rooms', group: 'Workspace', icon: DoorClosed },
+  { id: 'rooms', label: 'Rooms', group: 'Workspace', icon: DoorClosed, admin: true },
   { id: 'approvals', label: 'Approvals', group: 'Workspace', icon: ShieldCheck, admin: true },
   { id: 'calendar-integrations', label: 'Calendar integrations', group: 'Workspace', icon: Link2, admin: true },
   { id: 'access-roles', label: 'Access & roles', group: 'Workspace', icon: Users, admin: true },
