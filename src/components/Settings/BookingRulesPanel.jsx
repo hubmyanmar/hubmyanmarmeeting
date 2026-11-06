@@ -37,6 +37,7 @@ export default function BookingRulesPanel({ currentUser }) {
   const [approvalRequired, setApprovalRequired] = useState(true);
   const [workStart, setWorkStart] = useState('09:00');
   const [workEnd, setWorkEnd] = useState('18:00');
+  const [approvers, setApprovers] = useState({ admin: true, approver: true });
   const [channels, setChannels] = useState({
     email: true,
     inApp: true,
@@ -52,6 +53,14 @@ export default function BookingRulesPanel({ currentUser }) {
     setSaved(false);
   };
 
+  const toggleApprover = (key) => {
+    setApprovers((current) => {
+      if (current[key] && !current[key === 'admin' ? 'approver' : 'admin']) return current;
+      return { ...current, [key]: !current[key] };
+    });
+    setSaved(false);
+  };
+
   useEffect(() => {
     const loadRules = async () => {
       try {
@@ -59,6 +68,10 @@ export default function BookingRulesPanel({ currentUser }) {
         setApprovalRequired(rules.approval_required);
         setWorkStart(rules.work_start);
         setWorkEnd(rules.work_end);
+        setApprovers({
+          admin: rules.approver_admin,
+          approver: rules.approver_approver,
+        });
         setChannels({
           email: rules.notify_email,
           inApp: rules.notify_in_app,
@@ -83,6 +96,8 @@ export default function BookingRulesPanel({ currentUser }) {
         approval_required: approvalRequired,
         work_start: workStart,
         work_end: workEnd,
+        approver_admin: approvers.admin,
+        approver_approver: approvers.approver,
         notify_email: channels.email,
         notify_in_app: channels.inApp,
         notify_zoho_cliq: channels.zohoCliq,
@@ -128,8 +143,8 @@ export default function BookingRulesPanel({ currentUser }) {
 
         <RuleRow label="Who can approve meetings">
           <div className="flex flex-wrap gap-2">
-            <ChoicePill label="Admin" selected disabled />
-            <ChoicePill label="Approver" selected disabled />
+            <ChoicePill label="Admin" selected={approvers.admin} onClick={() => toggleApprover('admin')} disabled={disabled} />
+            <ChoicePill label="Approver" selected={approvers.approver} onClick={() => toggleApprover('approver')} disabled={disabled} />
           </div>
         </RuleRow>
 
