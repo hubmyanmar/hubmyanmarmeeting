@@ -13,7 +13,7 @@ const formatDateTime = (meeting) => {
 };
 
 export default function ApprovalsPanel({ currentUser }) {
-  const disabled = currentUser?.role !== 'admin';
+  const disabled = currentUser?.role !== 'admin' && currentUser?.role !== 'approver';
   const [meetings, setMeetings] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [notice, setNotice] = useState('');
@@ -54,7 +54,7 @@ export default function ApprovalsPanel({ currentUser }) {
         title="Approvals"
         description="Meetings waiting for approval before they block the calendar."
         icon={ShieldCheck}
-        badge="Admin only"
+        badge="Admin / Approver"
       />
 
       {notice && (
