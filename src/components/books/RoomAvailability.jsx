@@ -63,7 +63,7 @@ export default function RoomAvailability({ data, setData, bookedMeetings = [], r
   const todayStr = getLocalDateString(new Date());
   const currentViewDate = data?.date || todayStr;
 
-  const activeBookings = bookedMeetings;
+  const activeBookings = bookedMeetings.filter(b => b.status !== 'rejected');
 
   const userStart = parseTime(data?.startTime || "09:00 AM");
   const userEnd = parseTime(data?.endTime || "10:00 AM");
