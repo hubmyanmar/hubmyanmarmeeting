@@ -234,6 +234,7 @@ export default function TodaySchedule({
   const rawList = todayMeetings.length > 0 ? todayMeetings : bookedMeetings;
   
   const todayFilteredMeetings = rawList.filter(m => {
+    if (m.status === 'rejected') return false;
     const rawDate = m.date || m.meeting_date || '';
     if (!rawDate) return false;
     return String(rawDate).includes(todayDate) || todayDate.includes(String(rawDate));
@@ -251,6 +252,7 @@ export default function TodaySchedule({
     })
     .map((meeting) => {
       const cleanData = sanitizeMeetingData(meeting);
+      const isPendingApproval = meeting.status === 'pending';
       const startTimeStr = formatTimeToAMPM(cleanData.startTime);
       const start = parseTimeToDate(cleanData.startTime);
       
@@ -270,7 +272,10 @@ export default function TodaySchedule({
       let text = 'View';
       let remainingMins = 0;
 
-      if (isCompleted) {
+      if (isPendingApproval) {
+        status = 'pending';
+        text = 'Pending approval';
+      } else if (isCompleted) {
         status = 'completed';
         text = 'Completed';
       } else if (isRunning) {
@@ -339,6 +344,8 @@ export default function TodaySchedule({
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           Live
                         </span>
+                      ) : m.status === 'pending' ? (
+                        <span className="text-amber-600 font-semibold">Pending approval</span>
                       ) : m.status === 'completed' ? (
                         <span className="text-emerald-600 font-semibold">Done</span>
                       ) : (
@@ -375,6 +382,9 @@ export default function TodaySchedule({
                         )}
                       </div>
                       <div className="shrink-0">
+                        {m.status === 'pending' && (
+                          <span className="inline-flex items-center rounded bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 text-[9px] sm:text-xs font-semibold">Pending approval</span>
+                        )}
                         {m.status === 'primary' && (
                           <button onClick={(e) => handleJoin(e, m)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-md text-[10px] sm:text-xs font-semibold transition-colors shadow-sm cursor-pointer">
                             Join

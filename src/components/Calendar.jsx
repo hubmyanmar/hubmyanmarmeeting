@@ -55,7 +55,7 @@ export default function Calendar({ bookedMeetings = [] }) {
   };
 
   const formattedMeetings = useMemo(() => {
-    return bookedMeetings.map((b, index) => {
+    return bookedMeetings.filter((meeting) => meeting.status !== 'rejected').map((b, index) => {
       const rawParticipants = b.participants || b.participant_list || b.users || b.members || [];
       const attendees = Array.isArray(rawParticipants) ? rawParticipants.map(p => ({
         name: p.name || p.display_name || p.username || 'User',

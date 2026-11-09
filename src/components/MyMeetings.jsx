@@ -104,8 +104,8 @@ export default function MyMeetings({ bookedMeetings = [] }) {
     return {
       id: b.id || index + 1,
       date: meetingDateVal,
-      status: b.status || 'PENDING',
-      statusColor: b.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
+      status: b.status || 'scheduled',
+      statusColor: b.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
       title: b.title || 'Untitled Meeting',
       time: `${startTimeVal} - ${endTimeVal}`,
       location: meetingTypeVal === 'online' ? 'Online Meeting' : roomName,

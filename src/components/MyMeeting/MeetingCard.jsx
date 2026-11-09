@@ -41,9 +41,10 @@ export default function MeetingCard({ item }) {
   const remainingCount = participantsList.length - 3;
 
   const getDynamicStatusLabel = (dateStr) => {
-    if (item.status && item.status !== 'PENDING') {
-      return item.status;
-    }
+    if (item.status === 'pending') return 'Pending';
+    if (item.status === 'rejected') return 'Rejected';
+    if (item.status === 'approved') return 'Approved';
+    if (item.status !== 'scheduled' && item.status) return item.status;
 
     if (!dateStr) return 'PENDING';
 

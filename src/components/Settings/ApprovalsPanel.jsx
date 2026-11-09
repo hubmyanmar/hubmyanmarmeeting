@@ -1,22 +1,51 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Clock3, MapPin, Check, X } from 'lucide-react';
 import SettingsPanelHeader from './SettingsPanelHeader';
+import api from '../../api';
 
-const initialMeetings = [
-  { id: 1, title: 'Weekly Sync', organizer: 'Ei Ei San', dateTime: 'Tomorrow, 10:30 – 11:30', location: 'MD Room' },
-  { id: 2, title: 'Client Call', organizer: 'Ko Kyaw Myint', dateTime: 'Nov 6, 14:00 – 15:00', location: 'Online' },
-];
+const formatDateTime = (meeting) => {
+  const date = new Date(meeting.meeting_date);
+  const dateText = Number.isNaN(date.getTime())
+    ? meeting.meeting_date
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formatTime = (value) => String(value || '').slice(0, 5);
+  return `${dateText}, ${formatTime(meeting.start_time)} – ${formatTime(meeting.end_time)}`;
+};
 
 export default function ApprovalsPanel({ currentUser }) {
   const disabled = currentUser?.role !== 'admin';
-  const [meetings, setMeetings] = useState(initialMeetings);
+  const [meetings, setMeetings] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
 
-  const handleDecision = (meetingId, approved) => {
-    setMeetings((current) => current.filter((meeting) => meeting.id !== meetingId));
-    setNotice(approved
-      ? 'Approved — the calendar is now blocked for this meeting.'
-      : 'Rejected — the organizer will be notified.');
+  useEffect(() => {
+    const loadApprovals = async () => {
+      try {
+        const [{ data: pendingMeetings }, { data: roomData }] = await Promise.all([
+          api.get('/meetings/pending-approvals'),
+          api.get('/meeting-rooms/'),
+        ]);
+        setMeetings(Array.isArray(pendingMeetings) ? pendingMeetings : []);
+        setRooms(Array.isArray(roomData) ? roomData : []);
+      } catch (requestError) {
+        setError(requestError.response?.data?.detail || requestError.message || 'Failed to load pending approvals.');
+      }
+    };
+    loadApprovals();
+  }, []);
+
+  const handleDecision = async (meetingId, approved) => {
+    setError('');
+    try {
+      await api.post(`/meetings/${meetingId}/${approved ? 'approve' : 'reject'}`);
+      setMeetings((current) => current.filter((meeting) => meeting.id !== meetingId));
+      setNotice(approved
+        ? 'Approved — the calendar is now blocked for this meeting.'
+        : 'Rejected — the organizer will be notified.');
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || requestError.message || 'Unable to update meeting approval.');
+    }
   };
 
   return (
@@ -34,20 +63,22 @@ export default function ApprovalsPanel({ currentUser }) {
         </p>
       )}
 
+      {error && <p role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium leading-5 text-rose-800">{error}</p>}
+
       {meetings.length > 0 ? (
         <div className="space-y-3">
           {meetings.map((meeting) => (
             <article key={meeting.id} className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 sm:p-5">
               <div className="min-w-0">
                 <h3 className="break-words text-base font-semibold text-slate-900">{meeting.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">Organizer: {meeting.organizer}</p>
+                <p className="mt-1 text-sm text-slate-600">Organizer: {meeting.created_by_name}</p>
                 <p className="mt-3 flex items-start gap-2 text-sm leading-5 text-slate-600">
                   <Clock3 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                  <span>{meeting.dateTime}</span>
+                  <span>{formatDateTime(meeting)}</span>
                 </p>
                 <p className="mt-1 flex items-start gap-2 text-sm leading-5 text-slate-600">
                   <MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                  <span>{meeting.location}</span>
+                  <span>{meeting.room_id ? (rooms.find((room) => Number(room.id) === Number(meeting.room_id))?.name || rooms.find((room) => Number(room.id) === Number(meeting.room_id))?.room_name || `Room ${meeting.room_id}`) : 'Online'}</span>
                 </p>
               </div>
 

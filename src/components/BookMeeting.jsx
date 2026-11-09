@@ -139,12 +139,12 @@ export default function BookMeeting({ setBookedMeetings, bookedMeetings = [], cu
     console.log("Payload to Backend:", data);
     try {
       setIsLoading(true);
-      await api.post('/meetings/', payload);
+      const { data: createdMeeting } = await api.post('/meetings/', payload);
       const locationText = data.meetingType === "Online" ? `${data.platform} (Online)` : `Room ${data.room}`;
       showAlert(
         'success', 
         'အောင်မြင်ပါသည်!', 
-        `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking တင်ပြီးပါပြီ။`
+        `${locationText} တွင် ${data.startTime} မှ ${data.endTime} အတွက် Booking တင်ပြီးပါပြီ။${createdMeeting?.status === 'pending' ? ' Admin အတည်ပြုချက် စောင့်ဆိုင်းနေပါသည်။' : ''}`
       );
       fetchBookedMeetings(data.date);
       handleClear();
