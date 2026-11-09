@@ -287,7 +287,11 @@ export default function App() {
           
           <Route 
             path="settings" 
-            element={<Settings currentUser={currentUser} />} 
+            element={<Settings currentUser={currentUser} onMeetingStatusChange={(meetingId, status) => {
+              setBookedMeetings((current) => current.map((meeting) => (
+                String(meeting.id) === String(meetingId) ? { ...meeting, status } : meeting
+              )));
+            }} />} 
           />
           <Route 
             path="live-meeting" 

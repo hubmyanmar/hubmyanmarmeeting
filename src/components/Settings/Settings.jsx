@@ -22,7 +22,7 @@ const panelComponents = {
   'meeting-records': MeetingRecordsPanel,
 };
 
-export default function Settings({ currentUser }) {
+export default function Settings({ currentUser, onMeetingStatusChange }) {
   const location = useLocation();
   const { profileImage, setProfileImage } = useOutletContext();
   const openProfileFromNavigation = location.state?.settingsPanel === 'profile';
@@ -54,7 +54,9 @@ export default function Settings({ currentUser }) {
         <SettingsLayout currentUser={currentUser} profileImage={profileImage} activePanel={activePanel} mobilePanelOpen={mobilePanelOpen} onSelect={selectPanel}>
           {Panel && selected && (Panel === ProfilePanel
             ? <Panel currentUser={currentUser} profileImage={profileImage} setProfileImage={setProfileImage} />
-            : <Panel currentUser={currentUser} />)}
+            : Panel === ApprovalsPanel
+              ? <Panel currentUser={currentUser} onMeetingStatusChange={onMeetingStatusChange} />
+              : <Panel currentUser={currentUser} />)}
         </SettingsLayout>
       </div>
     </div>

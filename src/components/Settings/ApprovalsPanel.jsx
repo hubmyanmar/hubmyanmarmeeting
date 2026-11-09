@@ -12,7 +12,7 @@ const formatDateTime = (meeting) => {
   return `${dateText}, ${formatTime(meeting.start_time)} – ${formatTime(meeting.end_time)}`;
 };
 
-export default function ApprovalsPanel({ currentUser }) {
+export default function ApprovalsPanel({ currentUser, onMeetingStatusChange }) {
   const disabled = currentUser?.role !== 'admin' && currentUser?.role !== 'approver';
   const [meetings, setMeetings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -39,6 +39,7 @@ export default function ApprovalsPanel({ currentUser }) {
     setError('');
     try {
       await api.post(`/meetings/${meetingId}/${approved ? 'approve' : 'reject'}`);
+      onMeetingStatusChange?.(meetingId, approved ? 'approved' : 'rejected');
       setMeetings((current) => current.filter((meeting) => meeting.id !== meetingId));
       setNotice(approved
         ? 'Approved — the calendar is now blocked for this meeting.'
