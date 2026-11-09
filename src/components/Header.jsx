@@ -1,10 +1,60 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
+import api from '../api';
 
 export default function Header({ user, profileImage, setProfileImage }) {
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
   const displayName = user?.name || user?.fullName || "User";
   const navigate = useNavigate();
+
+  const fetchNotifications = async () => {
+    try {
+      const { data } = await api.get('/notifications');
+      setNotifications(Array.isArray(data.items) ? data.items : []);
+      setUnreadCount(data.unread_count || 0);
+    } catch {
+      // Keep the previous notification state if the request fails.
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const markNotificationRead = async (notification) => {
+    if (notification.is_read) return;
+    try {
+      const { data: updatedNotification } = await api.patch(`/notifications/${notification.id}/read`);
+      setNotifications((current) => current.map((item) => item.id === notification.id ? updatedNotification : item));
+      setUnreadCount((current) => Math.max(0, current - 1));
+    } catch {
+      // Keep the previous notification state if the request fails.
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+      setNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
+      setUnreadCount(0);
+    } catch {
+      // Keep the previous notification state if the request fails.
+    }
+  };
   
   const today = new Date().toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -34,10 +84,59 @@ export default function Header({ user, profileImage, setProfileImage }) {
           {today}
         </span>
 
-        <button className="relative p-1 text-gray-400 hover:text-gray-600">
-          <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-        </button>
+        <div className="relative" ref={notificationsRef}>
+          <button
+            type="button"
+            onClick={() => {
+              const nextOpen = !notificationsOpen;
+              setNotificationsOpen(nextOpen);
+              if (nextOpen) fetchNotifications();
+            }}
+            aria-label="Notifications"
+            aria-expanded={notificationsOpen}
+            className="relative p-1 text-gray-400 hover:text-gray-600"
+          >
+            <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border border-white">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notificationsOpen && (
+            <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-white border border-gray-100 rounded-xl shadow-lg z-20">
+              <div className="sticky top-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">Notifications</h2>
+                {unreadCount > 0 && (
+                  <button type="button" onClick={markAllNotificationsRead} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+              {notifications.length === 0 ? (
+                <p className="px-4 py-6 text-sm text-center text-gray-500">No notifications</p>
+              ) : (
+                [...notifications]
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                  .map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => markNotificationRead(notification)}
+                      className={`block w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${notification.is_read ? 'bg-white' : 'bg-indigo-50/60'}`}
+                    >
+                      <span className={`block text-sm text-gray-900 ${notification.is_read ? 'font-medium' : 'font-bold'}`}>{notification.title}</span>
+                      <span className="mt-1 block text-xs text-gray-600">{notification.body}</span>
+                      <span className="mt-1.5 block text-[11px] text-gray-400">
+                        {new Date(notification.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </span>
+                    </button>
+                  ))
+              )}
+            </div>
+          )}
+        </div>
         
         <div className="relative">
           <button
