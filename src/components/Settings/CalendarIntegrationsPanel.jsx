@@ -43,7 +43,6 @@ export default function CalendarIntegrationsPanel({ currentUser }) {
   const disabled = currentUser?.role !== 'admin';
   const [zohoConnected, setZohoConnected] = useState(false);
   const [zohoNeedsAttention, setZohoNeedsAttention] = useState(true);
-  const [googleConnected, setGoogleConnected] = useState(false);
 
   return (
     <>
@@ -60,13 +59,6 @@ export default function CalendarIntegrationsPanel({ currentUser }) {
           needsAttention={zohoNeedsAttention}
           onConnect={() => { setZohoConnected(true); setZohoNeedsAttention(false); }}
           onDisconnect={() => setZohoConnected(false)}
-          disabled={disabled}
-        />
-        <IntegrationCard
-          name="Google Calendar"
-          connected={googleConnected}
-          onConnect={() => setGoogleConnected(true)}
-          onDisconnect={() => setGoogleConnected(false)}
           disabled={disabled}
         />
       </div>
