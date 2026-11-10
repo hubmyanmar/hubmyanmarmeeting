@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link2, CalendarDays } from 'lucide-react';
+import api from '../../api';
 import SettingsPanelHeader from './SettingsPanelHeader';
 import SettingsBadge from './SettingsBadge';
 
@@ -41,8 +42,42 @@ function IntegrationCard({ name, connected, needsAttention = false, onConnect, o
 
 export default function CalendarIntegrationsPanel({ currentUser }) {
   const disabled = currentUser?.role !== 'admin';
+  const [zohoEnabled, setZohoEnabled] = useState(true);
   const [zohoConnected, setZohoConnected] = useState(false);
-  const [zohoNeedsAttention, setZohoNeedsAttention] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadZohoStatus = async () => {
+    try {
+      const { data } = await api.get('/settings/calendar-integrations');
+      setZohoEnabled(data.zoho_enabled);
+      setZohoConnected(data.zoho_connected);
+      setError('');
+    } catch {
+      setError('Could not load the Zoho status.');
+    }
+  };
+
+  useEffect(() => {
+    loadZohoStatus();
+  }, []);
+
+  const handleConnect = async () => {
+    try {
+      await api.put('/settings/calendar-integrations', { zoho_enabled: true });
+      await loadZohoStatus();
+    } catch {
+      setError('Could not update the Zoho setting.');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await api.put('/settings/calendar-integrations', { zoho_enabled: false });
+      await loadZohoStatus();
+    } catch {
+      setError('Could not update the Zoho setting.');
+    }
+  };
 
   return (
     <>
@@ -53,12 +88,13 @@ export default function CalendarIntegrationsPanel({ currentUser }) {
         badge="Admin only"
       />
       <div className="space-y-3">
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <IntegrationCard
           name="Zoho Calendar"
-          connected={zohoConnected}
-          needsAttention={zohoNeedsAttention}
-          onConnect={() => { setZohoConnected(true); setZohoNeedsAttention(false); }}
-          onDisconnect={() => setZohoConnected(false)}
+          connected={zohoEnabled && zohoConnected}
+          needsAttention={zohoEnabled && !zohoConnected}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
           disabled={disabled}
         />
       </div>
