@@ -17,6 +17,13 @@ const retentionLabelByDays = {
   180: '180 days',
 };
 
+const formatStorageBytes = (bytes) => {
+  if (bytes === null || bytes === undefined) return '—';
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB of recordings`;
+  if (bytes >= 1048576) return `${Math.round(bytes / 1048576)} MB of recordings`;
+  return `${Math.round(bytes)} bytes of recordings`;
+};
+
 function SettingsRow({ icon: Icon, label, description, children }) {
   return (
     <div className="grid gap-2 border-b border-slate-100 py-4 sm:gap-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-center">
@@ -35,12 +42,14 @@ function SettingsRow({ icon: Icon, label, description, children }) {
 export default function MeetingRecordsPanel({ currentUser }) {
   const disabled = currentUser?.role !== 'admin';
   const [retentionPeriod, setRetentionPeriod] = useState('90 days');
+  const [storageBytes, setStorageBytes] = useState(null);
 
   useEffect(() => {
     const loadRetentionPeriod = async () => {
       try {
         const { data } = await api.get('/settings/meeting-records');
         setRetentionPeriod(retentionLabelByDays[data.retention_days] || (data.retention_days === null ? 'Never' : '90 days'));
+        setStorageBytes(data.storage_bytes);
       } catch {
         // Keep the default value when the setting cannot be loaded.
       }
@@ -70,7 +79,7 @@ export default function MeetingRecordsPanel({ currentUser }) {
 
       <div className="divide-y divide-slate-100">
         <SettingsRow icon={HardDrive} label="Storage used">
-          <span>1.2 GB of recordings</span>
+          <span>{formatStorageBytes(storageBytes)}</span>
         </SettingsRow>
 
         <SettingsRow
