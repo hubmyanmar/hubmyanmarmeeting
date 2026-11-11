@@ -1,7 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileText, HardDrive, CalendarClock, Music2 } from 'lucide-react';
 import SettingsPanelHeader from './SettingsPanelHeader';
 import SettingsField from './SettingsField';
+import api from '../../api';
+
+const retentionDaysByLabel = {
+  '30 days': 30,
+  '90 days': 90,
+  '180 days': 180,
+  Never: null,
+};
+
+const retentionLabelByDays = {
+  30: '30 days',
+  90: '90 days',
+  180: '180 days',
+};
 
 function SettingsRow({ icon: Icon, label, description, children }) {
   return (
@@ -20,6 +34,31 @@ function SettingsRow({ icon: Icon, label, description, children }) {
 
 export default function MeetingRecordsPanel({ currentUser }) {
   const disabled = currentUser?.role !== 'admin';
+  const [retentionPeriod, setRetentionPeriod] = useState('90 days');
+
+  useEffect(() => {
+    const loadRetentionPeriod = async () => {
+      try {
+        const { data } = await api.get('/settings/meeting-records');
+        setRetentionPeriod(retentionLabelByDays[data.retention_days] || (data.retention_days === null ? 'Never' : '90 days'));
+      } catch {
+        // Keep the default value when the setting cannot be loaded.
+      }
+    };
+
+    loadRetentionPeriod();
+  }, []);
+
+  const saveRetentionPeriod = async () => {
+    try {
+      await api.put('/settings/meeting-records', {
+        retention_days: retentionDaysByLabel[retentionPeriod],
+      });
+    } catch {
+      // Keep the selected value when saving fails.
+    }
+  };
+
   return (
     <>
       <SettingsPanelHeader
@@ -41,7 +80,8 @@ export default function MeetingRecordsPanel({ currentUser }) {
         >
           <SettingsField
             label="Retention period"
-            value="90 days"
+            value={retentionPeriod}
+            onChange={(event) => setRetentionPeriod(event.target.value)}
             options={['30 days', '90 days', '180 days', 'Never']}
             disabled={disabled}
           />
@@ -59,6 +99,7 @@ export default function MeetingRecordsPanel({ currentUser }) {
       <button
         type="button"
         disabled={disabled}
+        onClick={saveRetentionPeriod}
         className="mt-5 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#564BFF] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4539ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#564BFF] focus-visible:ring-offset-2 active:bg-[#392fce] disabled:cursor-not-allowed disabled:opacity-50"
       >
         Save changes
