@@ -4,9 +4,9 @@ import SettingsBadge from './SettingsBadge';
 
 export default function SettingsProfileCard({ currentUser, profileImage }) {
   const user = Array.isArray(currentUser) ? currentUser[0] : currentUser;
-  const name = user?.name || user?.fullName || 'Naing Lin Oo';
-  const position = user?.position || user?.role || 'Group Sr. Business Development Manager';
-  const email = user?.email || 'naing.lin.oo@hubmyanmar.com';
+  const name = user?.name || user?.fullName;
+  const position = user?.position || user?.role;
+  const email = user?.email;
   const role = typeof user?.role === 'string' ? user.role.trim() : '';
   const displayRole = role ? `${role.charAt(0).toUpperCase()}${role.slice(1)}` : '';
 

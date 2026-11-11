@@ -41,8 +41,8 @@ export default function Sidebar({ user, profileImage }) {
   const location = useLocation();
   const currentPath = location.pathname;
   
-  const displayName = user?.name || user?.fullName || "User";
-  const position = user?.position || user?.role || "Member";
+  const displayName = user?.name || user?.fullName;
+  const position = user?.position || user?.role;
 
   const [showMore, setShowMore] = useState(false);
 
