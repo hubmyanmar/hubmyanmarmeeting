@@ -240,6 +240,25 @@ export default function ActionItem({ meetingData: propMeetingData }) {
     }
   };
 
+  const handleAssignTask = async (task, ownerName) => {
+    try {
+      const { data } = await api.put(`/action-items/${task.id}`, { owner_name: ownerName });
+      const updatedTask = toTask(data, meetings);
+      const updatedStatus = statusToApi[updatedTask.status];
+      setColumns((previous) => previous.map((column) => ({
+        ...column,
+        tasks: [
+          ...column.tasks.filter((item) => String(item.id) !== String(task.id)),
+          ...(statusToApi[column.title] === updatedStatus ? [updatedTask] : []),
+        ],
+      })));
+      return updatedTask;
+    } catch (error) {
+      console.error('Failed to update action item owner:', error);
+      return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8faef]/40 text-gray-800 font-sans pb-12 relative">
       <div className="md:hidden">
@@ -255,6 +274,7 @@ export default function ActionItem({ meetingData: propMeetingData }) {
           currentMeetingId={contextMeetingId}
           onAddTask={handleAddTask}
           onStatusChange={handleMobileStatusChange}
+          onAssignTask={handleAssignTask}
         />
       </div>
       <div className="hidden md:block">
@@ -316,6 +336,8 @@ export default function ActionItem({ meetingData: propMeetingData }) {
               column={column}
               onDragStart={handleDragStart}
               onDrop={handleDrop}
+              users={users}
+              onAssignTask={handleAssignTask}
             />
           ))}
         </div>

@@ -19,9 +19,12 @@ export default function MobileActionItems({
   currentMeetingId,
   onAddTask,
   onStatusChange,
+  onAssignTask,
 }) {
   const [activeColumnId, setActiveColumnId] = useState(columns[0]?.id || 'todo');
   const [selectedTask, setSelectedTask] = useState(null);
+  const [assignmentPickerOpen, setAssignmentPickerOpen] = useState(false);
+  const [assignmentQuery, setAssignmentQuery] = useState('');
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -67,6 +70,7 @@ export default function MobileActionItems({
   });
 
   const activeColumn = columns.find((column) => column.id === activeColumnId) || columns[0];
+  const matchingAssignmentUsers = users.filter((user) => (user.name || '').split(/[-(]/, 1)[0].trim().toLowerCase().includes(assignmentQuery.toLowerCase()));
 
   const handleCreate = async (event) => {
     event.preventDefault();
@@ -189,7 +193,9 @@ export default function MobileActionItems({
               <div><dt className="text-xs font-medium text-gray-400">Meeting</dt><dd className="mt-1 font-semibold text-gray-800">{selectedTask.meeting}</dd></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><dt className="text-xs font-medium text-gray-400">Priority</dt><dd className="mt-1 font-semibold text-gray-800">{selectedTask.priority}</dd></div>
-                <div><dt className="text-xs font-medium text-gray-400">Assignee</dt><dd className="mt-1 font-semibold text-gray-800">{selectedTask.assignee}</dd></div>
+                <button type="button" onClick={() => { setAssignmentPickerOpen((open) => !open); setAssignmentQuery(''); }} className="text-left">
+                  <dt className="text-xs font-medium text-gray-400">Assignee</dt><dd className="mt-1 font-semibold text-gray-800">{selectedTask.assignee}</dd>
+                </button>
               </div>
               <div><dt className="text-xs font-medium text-gray-400">Due date</dt><dd className="mt-1 font-semibold text-gray-800">{selectedTask.date?.startsWith('Due:') ? selectedTask.date.replace(/^Due:\s*/, '') : 'Not set'}</dd></div>
               <div>
@@ -199,6 +205,17 @@ export default function MobileActionItems({
                 </select>
               </div>
             </dl>
+            {assignmentPickerOpen && (
+              <div className="mt-3 rounded-xl border border-gray-100 bg-white p-2 shadow-lg">
+                <input autoFocus value={assignmentQuery} onChange={(event) => setAssignmentQuery(event.target.value)} placeholder="Search users..." className="mb-1 w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-500" />
+                <ul role="listbox" className="max-h-48 overflow-y-auto divide-y divide-gray-50">
+                  {matchingAssignmentUsers.map((user, index) => {
+                    const name = (user.name || '').split(/[-(]/, 1)[0].trim();
+                    return name ? <li key={user.email || user.id || index} role="option" onClick={async () => { const updated = await onAssignTask?.(selectedTask, name); if (updated) { setSelectedTask(updated); setAssignmentPickerOpen(false); } }} className="cursor-pointer px-3 py-3 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">{name}</li> : null;
+                  })}
+                </ul>
+              </div>
+            )}
           </section>
         </div>
       )}

@@ -2,7 +2,7 @@
 import React from 'react';
 import TaskCard from './TaskCard';
 
-export default function KanbanColumn({ column, onDragStart, onDrop }) {
+export default function KanbanColumn({ column, onDragStart, onDrop, users, onAssignTask }) {
   return (
     <div 
       className="flex flex-col gap-3 min-h-[500px]" 
@@ -45,6 +45,8 @@ export default function KanbanColumn({ column, onDragStart, onDrop }) {
               task={task} 
               columnId={column.id}
               onDragStart={onDragStart}
+              users={users}
+              onAssignTask={onAssignTask}
             />
           ))
         ) : (

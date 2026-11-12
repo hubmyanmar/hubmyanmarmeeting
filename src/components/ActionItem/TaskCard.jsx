@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-export default function TaskCard({ task, columnId, onDragStart }) {
+const bareName = (name) => (name || '').split(/[-(]/, 1)[0].trim();
+
+export default function TaskCard({ task, columnId, onDragStart, users = [], onAssignTask }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const matchingUsers = users.filter((user) => bareName(user.name).toLowerCase().includes(query.toLowerCase()));
   const getPriorityStyle = (priority) => {
     switch (priority) {
       case 'High':
@@ -61,7 +66,22 @@ export default function TaskCard({ task, columnId, onDragStart }) {
       <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100/80">
         <div className="flex items-center gap-1.5">
           <img src={task.avatar} alt={task.assignee} className="w-5 h-5 rounded-full object-cover border border-gray-200" />
-          <span className="text-[11px] font-medium text-gray-700 truncate max-w-[80px]">{task.assignee}</span>
+          <div className="relative">
+            <button type="button" onClick={(event) => { event.stopPropagation(); setPickerOpen((open) => !open); setQuery(''); }} className="text-[11px] font-medium text-gray-700 truncate max-w-[100px] hover:text-indigo-700">
+              {task.assignee}
+            </button>
+            {pickerOpen && (
+              <div className="absolute left-0 top-full z-40 mt-2 w-56 rounded-xl border border-gray-100 bg-white p-2 shadow-lg" onClick={(event) => event.stopPropagation()}>
+                <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search users..." className="mb-1 w-full rounded-lg border border-gray-200 px-2.5 py-2 text-xs outline-none focus:border-indigo-500" />
+                <ul role="listbox" className="max-h-40 overflow-y-auto divide-y divide-gray-50">
+                  {matchingUsers.map((user, index) => {
+                    const name = bareName(user.name);
+                    return name ? <li key={user.email || user.id || index} role="option" onMouseDown={(event) => event.preventDefault()} onClick={async () => { const updated = await onAssignTask?.(task, name); if (updated) setPickerOpen(false); }} className="cursor-pointer px-2.5 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">{name}</li> : null;
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-1 text-[11px] text-gray-400 font-medium shrink-0">
           <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
