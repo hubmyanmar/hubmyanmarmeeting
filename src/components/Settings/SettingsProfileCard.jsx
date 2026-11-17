@@ -4,7 +4,7 @@ import SettingsBadge from './SettingsBadge';
 
 export default function SettingsProfileCard({ currentUser, profileImage }) {
   const user = Array.isArray(currentUser) ? currentUser[0] : currentUser;
-  const name = user?.name || user?.fullName;
+  const name = user?.name || user?.fullName || "User";
   const position = user?.position || user?.role;
   const email = user?.email;
   const role = typeof user?.role === 'string' ? user.role.trim() : '';
