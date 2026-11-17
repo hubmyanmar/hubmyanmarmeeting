@@ -243,7 +243,8 @@ export function getTopMeetingRooms(filter = {}, meetingSessions = {}, bookedMeet
       ? getRoomName(sessionRoom)
       : roomNamesById[String(sessionRoom)] || sessionRoom ||
         (session.room_id !== undefined && session.room_id !== null ? roomNamesById[String(session.room_id)] : null);
-    const roomName = sessionRoomName || meeting?.roomName || 'Unknown Room';
+    const roomName = sessionRoomName || meeting?.roomName;
+    if (!roomName) return;
     if (filter?.room && filter.room !== 'All Rooms' && roomName !== filter.room) return;
     counts[roomName] = (counts[roomName] || 0) + 1;
   });
